@@ -1,5 +1,11 @@
+"use client"
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
+import AuthWrapper from '@/components/AuthWrapper';
 
 export default function AnalyticsPage() {
-  return <AnalyticsDashboard />;
+  return (
+    <AuthWrapper>
+      <AnalyticsDashboard />
+    </AuthWrapper>
+  );
 }
