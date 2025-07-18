@@ -21,7 +21,7 @@ export interface FirebaseRegistration {
   updatedAt: Timestamp;
   status: "pending" | "confirmed" | "cancelled";
   paymentStatus: "pending" | "verified" | "failed" | "not-required";
-  
+
   // Personal Information
   name: string;
   email: string;
@@ -32,7 +32,7 @@ export interface FirebaseRegistration {
   department: string;
   year: string;
   hasConsented: boolean;
-  
+
   // Event Registration
   selectedEvents: any[];
   selectedWorkshops: any[];
@@ -41,11 +41,11 @@ export interface FirebaseRegistration {
   isTeamEvent: boolean;
   teamSize: number;
   teamMembers: any[];
-  
+
   // Pass Information
   ispass: boolean;
   selectedPassId: number | null;
-  
+
   // Contact Details
   contactDetails: {
     accessibility: string;
@@ -53,7 +53,7 @@ export interface FirebaseRegistration {
     emergencyContact: string;
     emergencyPhone: string;
   };
-  
+
   // Arrival Status
   arrivalStatus: {
     hasArrived: boolean;
@@ -61,7 +61,7 @@ export interface FirebaseRegistration {
     checkedInBy: string | null;
     notes: string;
   };
-  
+
   // Workshop Details
   workshopDetails: {
     selectedWorkshop: string | null;
@@ -70,14 +70,14 @@ export interface FirebaseRegistration {
     workshopAttended: boolean;
     workshopAttendanceTime: Timestamp | null;
   };
-  
+
   // Event Attendance
   eventAttendance: {
     techEvents: any[];
     nonTechEvents: any[];
     workshops: any[];
   };
-  
+
   // Admin Notes
   adminNotes: {
     generalNotes: string;
@@ -87,7 +87,7 @@ export interface FirebaseRegistration {
     lastModifiedAt: Timestamp | null;
     lastModifiedBy: string | null;
   };
-  
+
   // Payment Information
   transactionIds: Record<string, any>;
 }
@@ -205,11 +205,11 @@ export async function submitRegistration(
       updatedAt: Timestamp.now(),
       status: "pending",
       paymentStatus: "pending",
-      
+
       // Pass Information
       ispass: false, // Default to false for now
       selectedPassId: null,
-      
+
       // Initialize nested objects with default values
       contactDetails: {
         accessibility: "",
@@ -295,16 +295,6 @@ export async function getRegistrationById(
   }
 }
 
-
-
-
-
-
-
-
-
-
-
 /**
  * Get all registrations (for admin purposes)
  */
@@ -346,7 +336,9 @@ export async function updatePaymentStatus(
 /**
  * Get all registrations with admin fields (Direct Firestore)
  */
-export async function getAllRegistrationsForAdmin(): Promise<FirebaseRegistration[]> {
+export async function getAllRegistrationsForAdmin(): Promise<
+  FirebaseRegistration[]
+> {
   try {
     const registrationsRef = collection(db, "registrations");
     const querySnapshot = await getDocs(registrationsRef);
@@ -360,7 +352,9 @@ export async function getAllRegistrationsForAdmin(): Promise<FirebaseRegistratio
     });
 
     // Sort by creation date (newest first)
-    return registrations.sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
+    return registrations.sort(
+      (a, b) => b.createdAt.seconds - a.createdAt.seconds
+    );
   } catch (error) {
     console.error("Error getting all registrations:", error);
     return [];
@@ -377,7 +371,10 @@ export async function updateArrivalStatus(
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
-    const q = query(registrationsRef, where("registrationId", "==", registrationId));
+    const q = query(
+      registrationsRef,
+      where("registrationId", "==", registrationId)
+    );
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
@@ -410,7 +407,10 @@ export async function updateWorkshopSelection(
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
-    const q = query(registrationsRef, where("registrationId", "==", registrationId));
+    const q = query(
+      registrationsRef,
+      where("registrationId", "==", registrationId)
+    );
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
@@ -447,7 +447,10 @@ export async function updateWorkshopAttendance(
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
-    const q = query(registrationsRef, where("registrationId", "==", registrationId));
+    const q = query(
+      registrationsRef,
+      where("registrationId", "==", registrationId)
+    );
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
@@ -481,19 +484,31 @@ export async function updateEventAttendance(
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
-    const q = query(registrationsRef, where("registrationId", "==", registrationId));
+    const q = query(
+      registrationsRef,
+      where("registrationId", "==", registrationId)
+    );
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
       throw new Error("Registration not found");
     }
 
-    const registration = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as FirebaseRegistration;
-    const eventAttendance = registration.eventAttendance || { techEvents: [], workshops: [], nonTechEvents: [] };
-    
+    const registration = {
+      id: querySnapshot.docs[0].id,
+      ...querySnapshot.docs[0].data(),
+    } as FirebaseRegistration;
+    const eventAttendance = registration.eventAttendance || {
+      techEvents: [],
+      workshops: [],
+      nonTechEvents: [],
+    };
+
     const eventArray = eventAttendance[eventType] || [];
-    const eventIndex = eventArray.findIndex((e: any) => e.eventId === eventId || e.workshopId === eventId);
-    
+    const eventIndex = eventArray.findIndex(
+      (e: any) => e.eventId === eventId || e.workshopId === eventId
+    );
+
     if (eventIndex !== -1) {
       // Update existing event attendance
       eventArray[eventIndex] = {
@@ -501,7 +516,7 @@ export async function updateEventAttendance(
         attended,
         attendanceTime: attended ? Timestamp.now() : null,
         notes,
-        ...(eventType === 'nonTechEvents' && { paidOnArrival, amountPaid })
+        ...(eventType === "nonTechEvents" && { paidOnArrival, amountPaid }),
       };
     } else {
       // Create new event attendance record
@@ -510,7 +525,7 @@ export async function updateEventAttendance(
         attended,
         attendanceTime: attended ? Timestamp.now() : null,
         notes,
-        ...(eventType === 'nonTechEvents' && { paidOnArrival, amountPaid })
+        ...(eventType === "nonTechEvents" && { paidOnArrival, amountPaid }),
       };
       eventArray.push(newAttendanceRecord);
     }
@@ -540,7 +555,10 @@ export async function updateAdminNotes(
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
-    const q = query(registrationsRef, where("registrationId", "==", registrationId));
+    const q = query(
+      registrationsRef,
+      where("registrationId", "==", registrationId)
+    );
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
@@ -578,7 +596,10 @@ export async function updatePersonalInfo(
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
-    const q = query(registrationsRef, where("registrationId", "==", registrationId));
+    const q = query(
+      registrationsRef,
+      where("registrationId", "==", registrationId)
+    );
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
@@ -616,7 +637,10 @@ export async function updateContactDetails(
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
-    const q = query(registrationsRef, where("registrationId", "==", registrationId));
+    const q = query(
+      registrationsRef,
+      where("registrationId", "==", registrationId)
+    );
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
@@ -651,7 +675,10 @@ export async function updateRegistrationStatus(
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
-    const q = query(registrationsRef, where("registrationId", "==", registrationId));
+    const q = query(
+      registrationsRef,
+      where("registrationId", "==", registrationId)
+    );
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
@@ -683,7 +710,10 @@ export async function updateSelectedEvents(
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
-    const q = query(registrationsRef, where("registrationId", "==", registrationId));
+    const q = query(
+      registrationsRef,
+      where("registrationId", "==", registrationId)
+    );
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
@@ -712,7 +742,10 @@ export async function updateSelectedWorkshops(
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
-    const q = query(registrationsRef, where("registrationId", "==", registrationId));
+    const q = query(
+      registrationsRef,
+      where("registrationId", "==", registrationId)
+    );
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
@@ -741,7 +774,10 @@ export async function updateSelectedNonTechEvents(
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
-    const q = query(registrationsRef, where("registrationId", "==", registrationId));
+    const q = query(
+      registrationsRef,
+      where("registrationId", "==", registrationId)
+    );
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
@@ -772,7 +808,10 @@ export async function updateTeamInfo(
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
-    const q = query(registrationsRef, where("registrationId", "==", registrationId));
+    const q = query(
+      registrationsRef,
+      where("registrationId", "==", registrationId)
+    );
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
@@ -791,5 +830,159 @@ export async function updateTeamInfo(
   } catch (error) {
     console.error("Error updating team info:", error);
     return false;
+  }
+}
+
+/**
+ * Create manual registration (Admin only)
+ */
+export async function createManualRegistration(registrationData: {
+  // Personal Information
+  name: string;
+  email: string;
+  whatsapp: string;
+  college: string;
+  department: string;
+  year: string;
+
+  // Event Selections
+  selectedEvents: any[];
+  selectedWorkshops: any[];
+  selectedNonTechEvents: any[];
+  isTeamEvent: boolean;
+  teamSize: number;
+  teamMembers: any[];
+
+  // Pass Information
+  ispass: boolean;
+  selectedPassId: number | null;
+
+  // Contact Details
+  contactDetails: {
+    emergencyContact: string;
+    emergencyPhone: string;
+    dietaryRestrictions: string;
+    accessibility: string;
+  };
+
+  // Status
+  status: "pending" | "confirmed" | "cancelled";
+  paymentStatus: "pending" | "verified" | "failed" | "not-required";
+
+  // Admin Notes
+  adminNotes: {
+    generalNotes: string;
+    specialRequirements: string;
+    flagged: boolean;
+    flagReason: string;
+  };
+
+  // Created by admin info
+  createdBy: string;
+}): Promise<{ success: boolean; registrationId: string; message: string }> {
+  try {
+    // Generate registration ID
+    const registrationId = `REG-${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 7)
+      .toUpperCase()}`;
+
+    // Create registration object
+    const registration = {
+      registrationId,
+      userId: `admin-created-${Date.now()}`,
+      userEmail: registrationData.email,
+      name: registrationData.name,
+      email: registrationData.email,
+      whatsapp: registrationData.whatsapp,
+      college: registrationData.college,
+      department: registrationData.department,
+      year: registrationData.year,
+      hasConsented: true, // Assumed for manual registration
+
+      // Event Information
+      selectedEvents: registrationData.selectedEvents,
+      selectedWorkshops: registrationData.selectedWorkshops,
+      selectedNonTechEvents: registrationData.selectedNonTechEvents,
+      eventCount: registrationData.selectedEvents?.length || 0,
+      isTeamEvent: registrationData.isTeamEvent,
+      teamSize: registrationData.teamSize,
+      teamMembers: registrationData.teamMembers,
+
+      // Pass Information
+      ispass: registrationData.ispass,
+      selectedPassId: registrationData.selectedPassId,
+
+      // Contact Details
+      contactDetails: registrationData.contactDetails,
+
+      // Arrival Status (Not arrived by default)
+      arrivalStatus: {
+        hasArrived: false,
+        arrivalTime: null,
+        checkedInBy: null,
+        notes: "",
+      },
+
+      // Workshop Details
+      workshopDetails: {
+        selectedWorkshop:
+          registrationData.selectedWorkshops.length > 0
+            ? registrationData.selectedWorkshops[0].id ||
+              registrationData.selectedWorkshops[0]
+            : null,
+        workshopTitle:
+          registrationData.selectedWorkshops.length > 0
+            ? registrationData.selectedWorkshops[0].title ||
+              registrationData.selectedWorkshops[0]
+            : "",
+        canEditWorkshop: true,
+        workshopAttended: false,
+        workshopAttendanceTime: null,
+      },
+
+      // Event Attendance (Empty by default)
+      eventAttendance: {
+        techEvents: [],
+        nonTechEvents: [],
+        workshops: [],
+      },
+
+      // Admin Notes
+      adminNotes: {
+        ...registrationData.adminNotes,
+        lastModifiedAt: Timestamp.now(),
+        lastModifiedBy: registrationData.createdBy,
+      },
+
+      // Status and Payment
+      status: registrationData.status,
+      paymentStatus: registrationData.paymentStatus,
+
+      // Transaction IDs (Empty for manual registration)
+      transactionIds: {},
+
+      // Timestamps
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    };
+
+    // Add to Firestore
+    const docRef = await addDoc(collection(db, "registrations"), registration);
+
+    console.log("Manual registration created successfully:", docRef.id);
+
+    return {
+      success: true,
+      registrationId,
+      message: `Manual registration created successfully! Registration ID: ${registrationId}`,
+    };
+  } catch (error) {
+    console.error("Error creating manual registration:", error);
+    return {
+      success: false,
+      registrationId: "",
+      message: "Failed to create manual registration. Please try again.",
+    };
   }
 }

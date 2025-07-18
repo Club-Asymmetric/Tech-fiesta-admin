@@ -24,6 +24,7 @@ import {
   CheckCircle, XCircle, Calendar, Star, Save, RefreshCw
 } from 'lucide-react';
 import Link from 'next/link';
+import ManualRegistrationForm from './ManualRegistrationForm';
 
 export default function EnhancedAdminDashboard() {
   const [registrations, setRegistrations] = useState<FirebaseRegistration[]>([]);
@@ -34,6 +35,7 @@ export default function EnhancedAdminDashboard() {
   const [selectedRegistration, setSelectedRegistration] = useState<FirebaseRegistration | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'arrival' | 'events' | 'notes' | 'edit'>('overview');
+  const [showManualRegistration, setShowManualRegistration] = useState(false);
 
   // Editing states
   const [editValues, setEditValues] = useState<any>({});
@@ -288,6 +290,13 @@ export default function EnhancedAdminDashboard() {
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold">Tech Fiesta 2025 - Enhanced Admin Dashboard</h1>
           <div className="flex gap-4">
+            <button
+              onClick={() => setShowManualRegistration(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+            >
+              <UserCheck className="h-4 w-4" />
+              Add Manual Registration
+            </button>
             <Link
                 href="/admin/analytics"
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
@@ -2170,6 +2179,14 @@ export default function EnhancedAdminDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Manual Registration Form */}
+      {showManualRegistration && (
+        <ManualRegistrationForm
+          onClose={() => setShowManualRegistration(false)}
+          onSuccess={() => fetchRegistrations()}
+        />
       )}
     </div>
   );
