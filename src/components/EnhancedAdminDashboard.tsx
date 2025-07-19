@@ -16,7 +16,9 @@ import {
   updateSelectedEvents,
   updateSelectedWorkshops,
   updateSelectedNonTechEvents,
-  updateTeamInfo
+  updateTeamInfo,
+  migrateAllRegistrations,
+  migrateRegistrationStructure
 } from '@/services/registrationService';
 import { 
   Download, Search, Eye, Mail, Phone, Edit2, X, BarChart3, Users,
@@ -25,6 +27,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import ManualRegistrationForm from './ManualRegistrationForm';
+import { getCurrentAdminUser } from '@/utils/adminAuth';
 
 export default function EnhancedAdminDashboard() {
   const [registrations, setRegistrations] = useState<FirebaseRegistration[]>([]);
@@ -39,6 +42,7 @@ export default function EnhancedAdminDashboard() {
 
   // Editing states
   const [editValues, setEditValues] = useState<any>({});
+  const [migrationLoading, setMigrationLoading] = useState(false);
 
   useEffect(() => {
     fetchRegistrations();
@@ -58,7 +62,7 @@ export default function EnhancedAdminDashboard() {
 
   const handleArrivalUpdate = async (registrationId: string, hasArrived: boolean, notes?: string) => {
     try {
-      const success = await updateArrivalStatus(registrationId, hasArrived, notes);
+      const success = await updateArrivalStatus(registrationId, hasArrived, notes, getCurrentAdminUser());
       if (success) {
         await fetchRegistrations(); // Refresh data
         setEditingField(null);
@@ -79,7 +83,10 @@ export default function EnhancedAdminDashboard() {
     flagReason: string
   ) => {
     try {
-      const success = await updateAdminNotes(registrationId, generalNotes, specialRequirements, flagged, flagReason);
+      const currentUser = getCurrentAdminUser();
+      console.log('Current admin user for notes update:', currentUser);
+      
+      const success = await updateAdminNotes(registrationId, generalNotes, specialRequirements, flagged, flagReason, currentUser);
       if (success) {
         await fetchRegistrations();
         setEditingField(null);
@@ -95,7 +102,7 @@ export default function EnhancedAdminDashboard() {
 
   const handleEventsUpdate = async (registrationId: string, selectedEvents: any[]) => {
     try {
-      const success = await updateSelectedEvents(registrationId, selectedEvents);
+      const success = await updateSelectedEvents(registrationId, selectedEvents, getCurrentAdminUser());
       if (success) {
         await fetchRegistrations();
         setEditingField(null);
@@ -111,7 +118,7 @@ export default function EnhancedAdminDashboard() {
 
   const handleWorkshopsUpdate = async (registrationId: string, selectedWorkshops: any[]) => {
     try {
-      const success = await updateSelectedWorkshops(registrationId, selectedWorkshops);
+      const success = await updateSelectedWorkshops(registrationId, selectedWorkshops, getCurrentAdminUser());
       if (success) {
         await fetchRegistrations();
         setEditingField(null);
@@ -157,6 +164,48 @@ export default function EnhancedAdminDashboard() {
     }
   };
 
+  const handleMigrationSingle = async (registrationId: string) => {
+    try {
+      setMigrationLoading(true);
+      const success = await migrateRegistrationStructure(registrationId);
+      if (success) {
+        alert(`Registration ${registrationId} migrated successfully!`);
+        await fetchRegistrations();
+      } else {
+        alert('Failed to migrate registration');
+      }
+    } catch (error) {
+      console.error('Error migrating registration:', error);
+      alert('Failed to migrate registration');
+    } finally {
+      setMigrationLoading(false);
+    }
+  };
+
+  const handleMigrationAll = async () => {
+    if (!confirm('This will migrate ALL registrations to have the complete structure. This may take a while. Continue?')) {
+      return;
+    }
+    
+    try {
+      setMigrationLoading(true);
+      const result = await migrateAllRegistrations();
+      if (result.success) {
+        alert(result.message);
+        await fetchRegistrations();
+      } else {
+        alert(result.message);
+      }
+    } catch (error) {
+      console.error('Error migrating all registrations:', error);
+      alert('Failed to migrate registrations');
+    } finally {
+      setMigrationLoading(false);
+    }
+  };
+
+
+
   const filteredRegistrations = registrations.filter(reg => {
     const matchesSearch = 
       reg.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -181,6 +230,25 @@ export default function EnhancedAdminDashboard() {
   const arrivedCount = registrations.filter(reg => reg.arrivalStatus?.hasArrived).length;
   const flaggedCount = registrations.filter(reg => reg.adminNotes?.flagged).length;
   const passHoldersCount = registrations.filter(reg => reg.ispass).length;
+
+  // Calculate edit tracking statistics
+  const editStats = registrations.reduce((stats, reg) => {
+    if (reg.editHistory && reg.editHistory.length > 0) {
+      stats.editedForms += 1;
+      stats.totalEdits += reg.editHistory.length;
+      
+      // Track recent edits (last 24 hours)
+      const oneDayAgo = new Date();
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+      
+      reg.editHistory.forEach(edit => {
+        if (edit.editedAt && edit.editedAt.toDate && edit.editedAt.toDate() >= oneDayAgo) {
+          stats.recentEdits += 1;
+        }
+      });
+    }
+    return stats;
+  }, { editedForms: 0, totalEdits: 0, recentEdits: 0 });
 
   const exportToCSV = () => {
     const csvHeaders = [
@@ -288,7 +356,7 @@ export default function EnhancedAdminDashboard() {
     <div className="min-h-screen bg-gray-900 text-white p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold">Tech Fiesta 2025 - Enhanced Admin Dashboard</h1>
+          <h1 className="text-3xl font-bold">Tech Fiesta 2025 - Admin Dashboard</h1>
           <div className="flex gap-4">
             <button
               onClick={() => setShowManualRegistration(true)}
@@ -465,6 +533,7 @@ export default function EnhancedAdminDashboard() {
                     <th className="px-4 py-3 text-left">Team</th>
                     <th className="px-4 py-3 text-left">Pass</th>
                     <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-left">Last Edit</th>
                     <th className="px-4 py-3 text-left">Arrival</th>
                     <th className="px-4 py-3 text-left">Actions</th>
                   </tr>
@@ -532,6 +601,27 @@ export default function EnhancedAdminDashboard() {
                         }`}>
                           {registration.status}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-xs">
+                          {registration.editHistory && registration.editHistory.length > 0 ? (
+                            <div>
+                              <div className="text-yellow-400 font-medium">
+                                {registration.editHistory.length} edit{registration.editHistory.length > 1 ? 's' : ''}
+                              </div>
+                              <div className="text-gray-400 truncate max-w-20" title={registration.editHistory[registration.editHistory.length - 1]?.editedBy}>
+                                By: {registration.editHistory[registration.editHistory.length - 1]?.editedBy?.split('@')[0] || 'Unknown'}
+                              </div>
+                              <div className="text-gray-500">
+                                {registration.editHistory[registration.editHistory.length - 1]?.editedAt && 
+                                  new Date(registration.editHistory[registration.editHistory.length - 1].editedAt.seconds * 1000).toLocaleDateString()
+                                }
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-gray-500">No edits</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -859,7 +949,7 @@ export default function EnhancedAdminDashboard() {
                                             onClick={async () => {
                                               try {
                                                 const eventId = typeof event === 'object' ? event.id : index;
-                                                const success = await updateEventAttendance(registration.registrationId, "techEvents", eventId, true);
+                                                const success = await updateEventAttendance(registration.registrationId, "techEvents", eventId, true, "", false, 0, getCurrentAdminUser());
                                                 if (success) {
                                                   await fetchRegistrations();
                                                 } else {
@@ -882,7 +972,7 @@ export default function EnhancedAdminDashboard() {
                                             onClick={async () => {
                                               try {
                                                 const eventId = typeof event === 'object' ? event.id : index;
-                                                const success = await updateEventAttendance(registration.registrationId, "techEvents", eventId, false);
+                                                const success = await updateEventAttendance(registration.registrationId, "techEvents", eventId, false, "", false, 0, getCurrentAdminUser());
                                                 if (success) {
                                                   await fetchRegistrations();
                                                 } else {
@@ -991,7 +1081,7 @@ export default function EnhancedAdminDashboard() {
                                             onClick={async () => {
                                               try {
                                                 const workshopId = typeof workshop === 'object' ? workshop.id : index;
-                                                const success = await updateEventAttendance(registration.registrationId, "workshops", workshopId, true);
+                                                const success = await updateEventAttendance(registration.registrationId, "workshops", workshopId, true, "", false, 0, getCurrentAdminUser());
                                                 if (success) {
                                                   await fetchRegistrations();
                                                 } else {
@@ -1014,7 +1104,7 @@ export default function EnhancedAdminDashboard() {
                                             onClick={async () => {
                                               try {
                                                 const workshopId = typeof workshop === 'object' ? workshop.id : index;
-                                                const success = await updateEventAttendance(registration.registrationId, "workshops", workshopId, false);
+                                                const success = await updateEventAttendance(registration.registrationId, "workshops", workshopId, false, "", false, 0, getCurrentAdminUser());
                                                 if (success) {
                                                   await fetchRegistrations();
                                                 } else {
@@ -1271,7 +1361,8 @@ export default function EnhancedAdminDashboard() {
                                       editValues.whatsapp || registration.whatsapp,
                                       editValues.college || registration.college,
                                       editValues.department || registration.department,
-                                      editValues.year || registration.year
+                                      editValues.year || registration.year,
+                                      getCurrentAdminUser() // Add admin user for edit tracking
                                     );
                                     if (success) {
                                       await fetchRegistrations();
@@ -1362,7 +1453,8 @@ export default function EnhancedAdminDashboard() {
                                       editValues.status || registration.status,
                                       editValues.paymentStatus || registration.paymentStatus,
                                       editValues.ispass !== undefined ? editValues.ispass : registration.ispass,
-                                      editValues.selectedPassId
+                                      editValues.selectedPassId,
+                                      getCurrentAdminUser() // Add admin user for edit tracking
                                     );
                                     if (success) {
                                       await fetchRegistrations();
@@ -1463,7 +1555,8 @@ export default function EnhancedAdminDashboard() {
                                       editValues.emergencyContact || registration.contactDetails?.emergencyContact || '',
                                       editValues.emergencyPhone || registration.contactDetails?.emergencyPhone || '',
                                       editValues.dietaryRestrictions || registration.contactDetails?.dietaryRestrictions || '',
-                                      editValues.accessibility || registration.contactDetails?.accessibility || ''
+                                      editValues.accessibility || registration.contactDetails?.accessibility || '',
+                                      getCurrentAdminUser() // Add admin user for edit tracking
                                     );
                                     if (success) {
                                       await fetchRegistrations();
@@ -2172,6 +2265,75 @@ export default function EnhancedAdminDashboard() {
                           </p>
                         )}
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Edit History */}
+                  <div className="bg-gray-700 p-4 rounded-lg">
+                    <h3 className="font-semibold text-red-400 mb-3 flex items-center gap-2">
+                      <Edit2 className="h-4 w-4" />
+                      Edit History ({selectedRegistration.editHistory?.length || 0} edits)
+                    </h3>
+                    <div className="space-y-3">
+                      {selectedRegistration.editHistory && selectedRegistration.editHistory.length > 0 ? (
+                        <div className="max-h-64 overflow-y-auto space-y-3">
+                          {selectedRegistration.editHistory
+                            .slice()
+                            .reverse() // Show newest edits first
+                            .map((edit, index) => (
+                            <div key={index} className="bg-gray-600 p-3 rounded border-l-2 border-red-400">
+                              <div className="flex justify-between items-start mb-2">
+                                <div>
+                                  <div className="font-medium text-red-400">
+                                    {edit.editedBy?.split('@')[0] || 'Unknown User'}
+                                  </div>
+                                  <div className="text-xs text-gray-400">
+                                    {edit.editedAt && edit.editedAt.toDate 
+                                      ? edit.editedAt.toDate().toLocaleString()
+                                      : 'Unknown time'
+                                    }
+                                  </div>
+                                </div>
+                                <div className="text-xs text-gray-300">
+                                  #{selectedRegistration.editHistory.length - index}
+                                </div>
+                              </div>
+                              
+                              <div className="text-sm">
+                                <div className="mb-2">
+                                  <strong className="text-yellow-400">Fields Changed:</strong>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {edit.editedFields?.map((field, fieldIndex) => (
+                                      <span key={fieldIndex} className="px-2 py-1 bg-yellow-600/20 text-yellow-300 rounded text-xs">
+                                        {field}
+                                      </span>
+                                    )) || <span className="text-gray-400">No fields specified</span>}
+                                  </div>
+                                </div>
+                                
+                                {edit.previousValues && Object.keys(edit.previousValues).length > 0 && (
+                                  <div>
+                                    <strong className="text-cyan-400">Previous Values:</strong>
+                                    <div className="mt-1 text-xs">
+                                      {Object.entries(edit.previousValues).map(([key, value]) => (
+                                        <div key={key} className="text-gray-300">
+                                          <span className="text-cyan-300">{key}:</span> {JSON.stringify(value)}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-gray-400 text-center py-4">
+                          <Edit2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p>No edit history available</p>
+                          <p className="text-xs">This registration hasn't been modified yet</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

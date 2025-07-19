@@ -4,6 +4,7 @@
 
 import { useState } from "react";
 import { createManualRegistration } from "@/services/registrationService";
+import { getCurrentAdminUser } from "@/utils/adminAuth";
 import {
   X,
   Save,
@@ -206,8 +207,8 @@ export default function ManualRegistrationForm({
 
       const result = await createManualRegistration({
         ...formData,
-        createdBy: "Admin User", // You can get this from auth context
-      });
+        createdBy: getCurrentAdminUser() || "Admin User",
+      }, getCurrentAdminUser());
 
       if (result.success) {
         alert(result.message);
