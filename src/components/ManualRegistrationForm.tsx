@@ -81,34 +81,33 @@ export default function ManualRegistrationForm({
 
   // Predefined options (these should ideally come from your backend)
   const techEvents = [
-    { id: 1, title: "Try, If you can..?", price: "₹99", citPrice: "₹59" },
-    { id: 2, title: "Reverse Code", price: "₹99", citPrice: "₹59" },
-    { id: 3, title: "Escape Room", price: "₹99", citPrice: "₹59" },
-    { id: 4, title: "Memory Forensics", price: "₹99", citPrice: "₹59" },
-    { id: 5, title: "Bug Bounty", price: "₹99", citPrice: "₹59" },
-    { id: 6, title: "Code Breaking", price: "₹99", citPrice: "₹59" },
-    { id: 7, title: "Crack the Code", price: "₹99", citPrice: "₹59" },
-    { id: 8, title: "Trace the Flag", price: "₹99", citPrice: "₹59" },
-    { id: 9, title: "AI Prompt Challenge", price: "₹99", citPrice: "₹59" },
+    { id: 1, title: "Reverse Code", price: "₹99", citPrice: "₹59" },
+    { id: 2, title: "Escape Room", price: "₹99", citPrice: "₹59" },
+    { id: 3, title: "Prompt Engineering", price: "₹99", citPrice: "₹59" },
+    { id: 4, title: "Project Presentation", price: "₹99", citPrice: "₹59" },
+    { id: 5, title: "Tech Trivia", price: "₹99", citPrice: "₹59" },
+    { id: 6, title: "UI/UX", price: "₹99", citPrice: "₹59" }
   ];
 
   const workshops = [
     { id: 1, title: "Blend with Blender", price: "₹100" },
     { id: 2, title: "Product Cyber Security", price: "₹100" },
-    { id: 3, title: "Web Application Security", price: "₹100" },
-    { id: 4, title: "Android Security", price: "₹100" },
-    { id: 5, title: "Networking with IT Corporates", price: "₹100" },
-    { id: 6, title: "Introduction to OSINT", price: "₹100" },
+    { id: 3, title: "Machine Learning Workshop", price: "₹100" },
+    { id: 4, title: "App/Web Development", price: "₹100" },
+    { id: 5, title: "Cloud/DevSecOps", price: "₹100" },
+    { id: 6, title: "Money Masters", price: "₹100" },
   ];
 
   const nonTechEvents = [
     {
-      id: 1,
-      title: "Photo Contest",
-      description: "Capture the perfect moment",
+      id: 7,
+      title: "BGMI",
+      description: "Battle it out in the popular mobile game BGMI! Team up, strategize, and compete for victory in an action-packed gaming tournament.",
     },
-    { id: 2, title: "Meme Contest", description: "Create viral memes" },
-    { id: 3, title: "Reel Contest", description: "Short video creativity" },
+    { id: 8, title: "ADDZAP", description: "Unleash your creativity in ADDZAP! Create and present unique advertisements for fun products, showcasing your storytelling and public speaking skills." },
+    { id: 9, title: "JAM", description: "Showcase your spontaneity in Just A Minute (JAM)! Speak on a given topic for one minute without hesitation, repetition, or deviation." },
+    { id: 10, title: "CHESS", description: "Test your strategic thinking and patience in a classic chess tournament. Compete against fellow participants and prove your mastery of the game." },
+    { id: 11, title: "Best Photography", description: "Capture the essence of the event! Submit your best photographs and compete for the title of Best Photographer, judged on creativity and technique." },
   ];
 
   const statusOptions = [
@@ -374,12 +373,11 @@ export default function ManualRegistrationForm({
                       }
                     >
                       <option value="">Select year</option>
-                      <option value="1st Year">1st Year</option>
-                      <option value="2nd Year">2nd Year</option>
-                      <option value="3rd Year">3rd Year</option>
-                      <option value="4th Year">4th Year</option>
+                      <option value="1st">1st Year</option>
+                      <option value="2nd">2nd Year</option>
+                      <option value="3rd">3rd Year</option>
+                      <option value="4th">4th Year</option>
                       <option value="Postgraduate">Postgraduate</option>
-                      <option value="Other">Other</option>
                     </select>
                   </div>
                 </div>
@@ -416,7 +414,10 @@ export default function ManualRegistrationForm({
                             {event.title}
                           </span>
                           <span className="text-gray-300 text-xs">
-                            {event.price}
+                            {formData.college.trim().toLowerCase() === "chennai institute of technology" ||
+                             formData.email.trim().toLowerCase().endsWith("@citchennai.net")
+                              ? event.citPrice
+                              : event.price}
                           </span>
                         </div>
                       </div>
