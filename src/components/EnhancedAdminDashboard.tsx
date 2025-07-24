@@ -69,7 +69,7 @@ export default function EnhancedAdminDashboard() {
   >([]);
 
 
-  
+
   // Editing states
   const [editValues, setEditValues] = useState<any>({});
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
@@ -107,6 +107,8 @@ export default function EnhancedAdminDashboard() {
       setSendingEmail(null);
     }
   };
+
+  
 
   const fetchRegistrations = async () => {
     try {
