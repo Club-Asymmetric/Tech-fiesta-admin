@@ -88,14 +88,71 @@ export interface FirebaseRegistration {
     lastModifiedBy: string | null;
   };
 
+  // Edit Tracking
+  editHistory?: Array<{
+    editedAt: Timestamp;
+    editedBy: string; // email or user ID of the person who made the edit
+    editedFields: string[]; // array of field names that were changed
+    previousValues?: any; // optional: store previous values
+  }>;
+
   // Payment Information
   transactionIds: Record<string, any>;
+  paymentAmount?: number; // Total amount paid by the user
 }
 
 export interface DuplicateCheck {
   exists: boolean;
   duplicateFields: string[];
   existingRegistration?: FirebaseRegistration;
+}
+
+/**
+ * Helper function to track form edits
+ */
+export async function trackFormEdit(
+  registrationId: string,
+  editedBy: string,
+  editedFields: string[],
+  previousValues?: any
+): Promise<boolean> {
+  try {
+    const registrationsRef = collection(db, "registrations");
+    const q = query(
+      registrationsRef,
+      where("registrationId", "==", registrationId)
+    );
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      throw new Error("Registration not found");
+    }
+
+    const docRef = doc(db, "registrations", querySnapshot.docs[0].id);
+    const currentData = querySnapshot.docs[0].data() as FirebaseRegistration;
+    
+    const newEditEntry = {
+      editedAt: Timestamp.now(),
+      editedBy: editedBy,
+      editedFields: editedFields,
+      ...(previousValues && { previousValues })
+    };
+
+    const updatedEditHistory = [
+      ...(currentData.editHistory || []),
+      newEditEntry
+    ];
+
+    await updateDoc(docRef, {
+      editHistory: updatedEditHistory,
+      updatedAt: Timestamp.now(),
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Error tracking form edit:", error);
+    return false;
+  }
 }
 
 /**
@@ -243,6 +300,12 @@ export async function submitRegistration(
         lastModifiedAt: null,
         lastModifiedBy: null,
       },
+      
+      // Initialize edit tracking
+      editHistory: [],
+      
+      // Initialize payment amount
+      paymentAmount: 0,
     };
 
     // Add to Firestore
@@ -318,14 +381,43 @@ export async function getAllRegistrations(): Promise<FirebaseRegistration[]> {
  */
 export async function updatePaymentStatus(
   registrationId: string,
-  paymentStatus: "pending" | "verified" | "failed"
+  paymentStatus: "pending" | "verified" | "failed",
+  editedBy?: string
 ): Promise<boolean> {
   try {
-    const registrationDoc = doc(db, "registrations", registrationId);
-    await updateDoc(registrationDoc, {
+    const registrationsRef = collection(db, "registrations");
+    const q = query(
+      registrationsRef,
+      where("registrationId", "==", registrationId)
+    );
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      throw new Error("Registration not found");
+    }
+
+    const docRef = doc(db, "registrations", querySnapshot.docs[0].id);
+    const currentData = querySnapshot.docs[0].data() as FirebaseRegistration;
+    
+    // Track changes
+    const editedFields: string[] = [];
+    const previousValues: any = {};
+    
+    if (currentData.paymentStatus !== paymentStatus) {
+      editedFields.push('paymentStatus');
+      previousValues.paymentStatus = currentData.paymentStatus;
+    }
+    
+    await updateDoc(docRef, {
       paymentStatus,
       updatedAt: Timestamp.now(),
     });
+
+    // Track the edit if there were changes and editedBy is provided
+    if (editedFields.length > 0 && editedBy) {
+      await trackFormEdit(registrationId, editedBy, editedFields, previousValues);
+    }
+
     return true;
   } catch (error) {
     console.error("Error updating payment status:", error);
@@ -367,7 +459,8 @@ export async function getAllRegistrationsForAdmin(): Promise<
 export async function updateArrivalStatus(
   registrationId: string,
   hasArrived: boolean,
-  notes: string = ""
+  notes: string = "",
+  editedBy?: string
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
@@ -382,12 +475,32 @@ export async function updateArrivalStatus(
     }
 
     const docRef = doc(db, "registrations", querySnapshot.docs[0].id);
+    const currentData = querySnapshot.docs[0].data() as FirebaseRegistration;
+    
+    // Track changes
+    const editedFields: string[] = [];
+    const previousValues: any = {};
+    
+    if (currentData.arrivalStatus?.hasArrived !== hasArrived) {
+      editedFields.push('arrivalStatus.hasArrived');
+      previousValues.hasArrived = currentData.arrivalStatus?.hasArrived;
+    }
+    if (currentData.arrivalStatus?.notes !== notes) {
+      editedFields.push('arrivalStatus.notes');
+      previousValues.notes = currentData.arrivalStatus?.notes;
+    }
+    
     await updateDoc(docRef, {
       "arrivalStatus.hasArrived": hasArrived,
       "arrivalStatus.arrivalTime": hasArrived ? Timestamp.now() : null,
       "arrivalStatus.notes": notes,
       updatedAt: Timestamp.now(),
     });
+
+    // Track the edit if there were changes and editedBy is provided
+    if (editedFields.length > 0 && editedBy) {
+      await trackFormEdit(registrationId, editedBy, editedFields, previousValues);
+    }
 
     return true;
   } catch (error) {
@@ -403,7 +516,8 @@ export async function updateWorkshopSelection(
   registrationId: string,
   selectedWorkshop: number,
   workshopTitle: string,
-  workshopAttended?: boolean
+  workshopAttended?: boolean,
+  editedBy?: string
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
@@ -418,6 +532,25 @@ export async function updateWorkshopSelection(
     }
 
     const docRef = doc(db, "registrations", querySnapshot.docs[0].id);
+    const currentData = querySnapshot.docs[0].data() as FirebaseRegistration;
+    
+    // Track changes
+    const editedFields: string[] = [];
+    const previousValues: any = {};
+    
+    if (Number(currentData.workshopDetails?.selectedWorkshop) !== selectedWorkshop) {
+      editedFields.push('workshopDetails.selectedWorkshop');
+      previousValues.selectedWorkshop = currentData.workshopDetails?.selectedWorkshop;
+    }
+    if (currentData.workshopDetails?.workshopTitle !== workshopTitle) {
+      editedFields.push('workshopDetails.workshopTitle');
+      previousValues.workshopTitle = currentData.workshopDetails?.workshopTitle;
+    }
+    if (workshopAttended !== undefined && currentData.workshopDetails?.workshopAttended !== workshopAttended) {
+      editedFields.push('workshopDetails.workshopAttended');
+      previousValues.workshopAttended = currentData.workshopDetails?.workshopAttended;
+    }
+    
     const updateData: any = {
       "workshopDetails.selectedWorkshop": selectedWorkshop,
       "workshopDetails.workshopTitle": workshopTitle,
@@ -431,6 +564,11 @@ export async function updateWorkshopSelection(
 
     await updateDoc(docRef, updateData);
 
+    // Track the edit if there were changes and editedBy is provided
+    if (editedFields.length > 0 && editedBy) {
+      await trackFormEdit(registrationId, editedBy, editedFields, previousValues);
+    }
+
     return true;
   } catch (error) {
     console.error("Error updating workshop selection:", error);
@@ -443,7 +581,8 @@ export async function updateWorkshopSelection(
  */
 export async function updateWorkshopAttendance(
   registrationId: string,
-  attended: boolean
+  attended: boolean,
+  editedBy?: string
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
@@ -458,10 +597,26 @@ export async function updateWorkshopAttendance(
     }
 
     const docRef = doc(db, "registrations", querySnapshot.docs[0].id);
+    const currentData = querySnapshot.docs[0].data() as FirebaseRegistration;
+    
+    // Track changes
+    const editedFields: string[] = [];
+    const previousValues: any = {};
+    
+    if (currentData.workshopDetails?.workshopAttended !== attended) {
+      editedFields.push('workshopDetails.workshopAttended');
+      previousValues.workshopAttended = currentData.workshopDetails?.workshopAttended;
+    }
+    
     await updateDoc(docRef, {
       "workshopDetails.workshopAttended": attended,
       updatedAt: Timestamp.now(),
     });
+
+    // Track the edit if there were changes and editedBy is provided
+    if (editedFields.length > 0 && editedBy) {
+      await trackFormEdit(registrationId, editedBy, editedFields, previousValues);
+    }
 
     return true;
   } catch (error) {
@@ -480,7 +635,8 @@ export async function updateEventAttendance(
   attended: boolean,
   notes: string = "",
   paidOnArrival: boolean = false,
-  amountPaid: number = 0
+  amountPaid: number = 0,
+  editedBy?: string
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
@@ -509,8 +665,32 @@ export async function updateEventAttendance(
       (e: any) => e.eventId === eventId || e.workshopId === eventId
     );
 
+    // Track changes
+    const editedFields: string[] = [];
+    const previousValues: any = {};
+    
     if (eventIndex !== -1) {
       // Update existing event attendance
+      const currentEvent = eventArray[eventIndex];
+      if (currentEvent.attended !== attended) {
+        editedFields.push(`eventAttendance.${eventType}[${eventIndex}].attended`);
+        previousValues.attended = currentEvent.attended;
+      }
+      if (currentEvent.notes !== notes) {
+        editedFields.push(`eventAttendance.${eventType}[${eventIndex}].notes`);
+        previousValues.notes = currentEvent.notes;
+      }
+      if (eventType === "nonTechEvents") {
+        if (currentEvent.paidOnArrival !== paidOnArrival) {
+          editedFields.push(`eventAttendance.${eventType}[${eventIndex}].paidOnArrival`);
+          previousValues.paidOnArrival = currentEvent.paidOnArrival;
+        }
+        if (currentEvent.amountPaid !== amountPaid) {
+          editedFields.push(`eventAttendance.${eventType}[${eventIndex}].amountPaid`);
+          previousValues.amountPaid = currentEvent.amountPaid;
+        }
+      }
+      
       eventArray[eventIndex] = {
         ...eventArray[eventIndex],
         attended,
@@ -520,6 +700,7 @@ export async function updateEventAttendance(
       };
     } else {
       // Create new event attendance record
+      editedFields.push(`eventAttendance.${eventType}.added`);
       const newAttendanceRecord = {
         eventId,
         attended,
@@ -536,6 +717,11 @@ export async function updateEventAttendance(
       updatedAt: Timestamp.now(),
     });
 
+    // Track the edit if there were changes and editedBy is provided
+    if (editedFields.length > 0 && editedBy) {
+      await trackFormEdit(registrationId, editedBy, editedFields, previousValues);
+    }
+
     return true;
   } catch (error) {
     console.error("Error updating event attendance:", error);
@@ -551,7 +737,8 @@ export async function updateAdminNotes(
   generalNotes: string,
   specialRequirements: string,
   flagged: boolean,
-  flagReason: string
+  flagReason: string,
+  editedBy?: string
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
@@ -566,14 +753,75 @@ export async function updateAdminNotes(
     }
 
     const docRef = doc(db, "registrations", querySnapshot.docs[0].id);
-    await updateDoc(docRef, {
+    const currentData = querySnapshot.docs[0].data() as FirebaseRegistration;
+    
+    // Ensure the adminNotes structure exists
+    if (!currentData.adminNotes) {
+      console.log(`Admin notes structure missing for ${registrationId}, creating it...`);
+      await updateDoc(docRef, {
+        "adminNotes.generalNotes": "",
+        "adminNotes.specialRequirements": "",
+        "adminNotes.flagged": false,
+        "adminNotes.flagReason": "",
+        "adminNotes.lastModifiedAt": null,
+        "adminNotes.lastModifiedBy": null,
+      });
+      // Refetch the data after creating the structure
+      const updatedSnapshot = await getDocs(q);
+      const updatedData = updatedSnapshot.docs[0].data() as FirebaseRegistration;
+      currentData.adminNotes = updatedData.adminNotes;
+    }
+    
+    console.log(`Updating admin notes for ${registrationId}`, {
+      editedBy,
+      currentNotes: currentData.adminNotes,
+      newValues: { generalNotes, specialRequirements, flagged, flagReason }
+    });
+    
+    // Track changes
+    const editedFields: string[] = [];
+    const previousValues: any = {};
+    
+    if (currentData.adminNotes?.generalNotes !== generalNotes) {
+      editedFields.push('adminNotes.generalNotes');
+      previousValues.generalNotes = currentData.adminNotes?.generalNotes;
+    }
+    if (currentData.adminNotes?.specialRequirements !== specialRequirements) {
+      editedFields.push('adminNotes.specialRequirements');
+      previousValues.specialRequirements = currentData.adminNotes?.specialRequirements;
+    }
+    if (currentData.adminNotes?.flagged !== flagged) {
+      editedFields.push('adminNotes.flagged');
+      previousValues.flagged = currentData.adminNotes?.flagged;
+    }
+    if (currentData.adminNotes?.flagReason !== flagReason) {
+      editedFields.push('adminNotes.flagReason');
+      previousValues.flagReason = currentData.adminNotes?.flagReason;
+    }
+    
+    // Always update lastModifiedAt and lastModifiedBy when the function is called
+    const updateData = {
       "adminNotes.generalNotes": generalNotes,
       "adminNotes.specialRequirements": specialRequirements,
       "adminNotes.flagged": flagged,
       "adminNotes.flagReason": flagReason,
       "adminNotes.lastModifiedAt": Timestamp.now(),
+      "adminNotes.lastModifiedBy": editedBy || "unknown",
       updatedAt: Timestamp.now(),
-    });
+    };
+    
+    console.log(`About to update admin notes:`, updateData);
+    
+    await updateDoc(docRef, updateData);
+
+    console.log(`Updated admin notes for ${registrationId}, editedBy: ${editedBy}, changes: ${editedFields.length}`);
+
+    // Track the edit if there were changes and editedBy is provided
+    if (editedFields.length > 0 && editedBy) {
+      await trackFormEdit(registrationId, editedBy, editedFields, previousValues);
+    } else if (editedFields.length > 0) {
+      console.log("Changes detected but no editedBy provided:", editedFields);
+    }
 
     return true;
   } catch (error) {
@@ -592,7 +840,8 @@ export async function updatePersonalInfo(
   whatsapp: string,
   college: string,
   department: string,
-  year: string
+  year: string,
+  editedBy?: string
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
@@ -607,6 +856,40 @@ export async function updatePersonalInfo(
     }
 
     const docRef = doc(db, "registrations", querySnapshot.docs[0].id);
+    const currentData = querySnapshot.docs[0].data() as FirebaseRegistration;
+    
+    // Migrate structure if needed (for older registrations)
+    await migrateRegistrationStructure(registrationId);
+    
+    // Track changes
+    const editedFields: string[] = [];
+    const previousValues: any = {};
+    
+    if (currentData.name !== name.trim()) {
+      editedFields.push('name');
+      previousValues.name = currentData.name;
+    }
+    if (currentData.email !== email.toLowerCase().trim()) {
+      editedFields.push('email');
+      previousValues.email = currentData.email;
+    }
+    if (currentData.whatsapp !== whatsapp.trim()) {
+      editedFields.push('whatsapp');
+      previousValues.whatsapp = currentData.whatsapp;
+    }
+    if (currentData.college !== college.trim()) {
+      editedFields.push('college');
+      previousValues.college = currentData.college;
+    }
+    if (currentData.department !== department.trim()) {
+      editedFields.push('department');
+      previousValues.department = currentData.department;
+    }
+    if (currentData.year !== year) {
+      editedFields.push('year');
+      previousValues.year = currentData.year;
+    }
+    
     await updateDoc(docRef, {
       name: name.trim(),
       email: email.toLowerCase().trim(),
@@ -617,6 +900,11 @@ export async function updatePersonalInfo(
       year: year,
       updatedAt: Timestamp.now(),
     });
+
+    // Track the edit if there were changes and editedBy is provided
+    if (editedFields.length > 0 && editedBy) {
+      await trackFormEdit(registrationId, editedBy, editedFields, previousValues);
+    }
 
     return true;
   } catch (error) {
@@ -633,7 +921,8 @@ export async function updateContactDetails(
   emergencyContact: string,
   emergencyPhone: string,
   dietaryRestrictions: string,
-  accessibility: string
+  accessibility: string,
+  editedBy?: string
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
@@ -648,6 +937,32 @@ export async function updateContactDetails(
     }
 
     const docRef = doc(db, "registrations", querySnapshot.docs[0].id);
+    const currentData = querySnapshot.docs[0].data() as FirebaseRegistration;
+    
+    // Migrate structure if needed (for older registrations)
+    await migrateRegistrationStructure(registrationId);
+    
+    // Track changes
+    const editedFields: string[] = [];
+    const previousValues: any = {};
+    
+    if (currentData.contactDetails?.emergencyContact !== emergencyContact) {
+      editedFields.push('contactDetails.emergencyContact');
+      previousValues.emergencyContact = currentData.contactDetails?.emergencyContact;
+    }
+    if (currentData.contactDetails?.emergencyPhone !== emergencyPhone) {
+      editedFields.push('contactDetails.emergencyPhone');
+      previousValues.emergencyPhone = currentData.contactDetails?.emergencyPhone;
+    }
+    if (currentData.contactDetails?.dietaryRestrictions !== dietaryRestrictions) {
+      editedFields.push('contactDetails.dietaryRestrictions');
+      previousValues.dietaryRestrictions = currentData.contactDetails?.dietaryRestrictions;
+    }
+    if (currentData.contactDetails?.accessibility !== accessibility) {
+      editedFields.push('contactDetails.accessibility');
+      previousValues.accessibility = currentData.contactDetails?.accessibility;
+    }
+    
     await updateDoc(docRef, {
       "contactDetails.emergencyContact": emergencyContact,
       "contactDetails.emergencyPhone": emergencyPhone,
@@ -655,6 +970,11 @@ export async function updateContactDetails(
       "contactDetails.accessibility": accessibility,
       updatedAt: Timestamp.now(),
     });
+
+    // Track the edit if there were changes and editedBy is provided
+    if (editedFields.length > 0 && editedBy) {
+      await trackFormEdit(registrationId, editedBy, editedFields, previousValues);
+    }
 
     return true;
   } catch (error) {
@@ -671,7 +991,8 @@ export async function updateRegistrationStatus(
   status: string,
   paymentStatus: string,
   ispass: boolean,
-  selectedPassId?: number
+  selectedPassId?: number,
+  editedBy?: string // Add this parameter to track who made the edit
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
@@ -686,6 +1007,29 @@ export async function updateRegistrationStatus(
     }
 
     const docRef = doc(db, "registrations", querySnapshot.docs[0].id);
+    const currentData = querySnapshot.docs[0].data() as FirebaseRegistration;
+    
+    // Track what fields are being changed
+    const editedFields: string[] = [];
+    const previousValues: any = {};
+    
+    if (currentData.status !== status) {
+      editedFields.push('status');
+      previousValues.status = currentData.status;
+    }
+    if (currentData.paymentStatus !== paymentStatus) {
+      editedFields.push('paymentStatus');
+      previousValues.paymentStatus = currentData.paymentStatus;
+    }
+    if (currentData.ispass !== ispass) {
+      editedFields.push('ispass');
+      previousValues.ispass = currentData.ispass;
+    }
+    if (currentData.selectedPassId !== (selectedPassId || null)) {
+      editedFields.push('selectedPassId');
+      previousValues.selectedPassId = currentData.selectedPassId;
+    }
+
     await updateDoc(docRef, {
       status: status,
       paymentStatus: paymentStatus,
@@ -693,6 +1037,11 @@ export async function updateRegistrationStatus(
       selectedPassId: selectedPassId || null,
       updatedAt: Timestamp.now(),
     });
+
+    // Track the edit if there were changes and editedBy is provided
+    if (editedFields.length > 0 && editedBy) {
+      await trackFormEdit(registrationId, editedBy, editedFields, previousValues);
+    }
 
     return true;
   } catch (error) {
@@ -706,7 +1055,8 @@ export async function updateRegistrationStatus(
  */
 export async function updateSelectedEvents(
   registrationId: string,
-  selectedEvents: any[]
+  selectedEvents: any[],
+  editedBy?: string
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
@@ -721,10 +1071,26 @@ export async function updateSelectedEvents(
     }
 
     const docRef = doc(db, "registrations", querySnapshot.docs[0].id);
+    const currentData = querySnapshot.docs[0].data() as FirebaseRegistration;
+    
+    // Track changes
+    const previousEvents = currentData.selectedEvents || [];
+    const hasChanged = JSON.stringify(previousEvents) !== JSON.stringify(selectedEvents);
+    
     await updateDoc(docRef, {
       selectedEvents: selectedEvents,
       updatedAt: Timestamp.now(),
     });
+
+    // Track the edit if there were changes and editedBy is provided
+    if (hasChanged && editedBy) {
+      await trackFormEdit(
+        registrationId, 
+        editedBy, 
+        ['selectedEvents'], 
+        { selectedEvents: previousEvents }
+      );
+    }
 
     return true;
   } catch (error) {
@@ -738,7 +1104,8 @@ export async function updateSelectedEvents(
  */
 export async function updateSelectedWorkshops(
   registrationId: string,
-  selectedWorkshops: any[]
+  selectedWorkshops: any[],
+  editedBy?: string
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
@@ -753,10 +1120,26 @@ export async function updateSelectedWorkshops(
     }
 
     const docRef = doc(db, "registrations", querySnapshot.docs[0].id);
+    const currentData = querySnapshot.docs[0].data() as FirebaseRegistration;
+    
+    // Track changes
+    const previousWorkshops = currentData.selectedWorkshops || [];
+    const hasChanged = JSON.stringify(previousWorkshops) !== JSON.stringify(selectedWorkshops);
+    
     await updateDoc(docRef, {
       selectedWorkshops: selectedWorkshops,
       updatedAt: Timestamp.now(),
     });
+
+    // Track the edit if there were changes and editedBy is provided
+    if (hasChanged && editedBy) {
+      await trackFormEdit(
+        registrationId, 
+        editedBy, 
+        ['selectedWorkshops'], 
+        { selectedWorkshops: previousWorkshops }
+      );
+    }
 
     return true;
   } catch (error) {
@@ -770,7 +1153,8 @@ export async function updateSelectedWorkshops(
  */
 export async function updateSelectedNonTechEvents(
   registrationId: string,
-  selectedNonTechEvents: any[]
+  selectedNonTechEvents: any[],
+  editedBy?: string
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
@@ -785,10 +1169,26 @@ export async function updateSelectedNonTechEvents(
     }
 
     const docRef = doc(db, "registrations", querySnapshot.docs[0].id);
+    const currentData = querySnapshot.docs[0].data() as FirebaseRegistration;
+    
+    // Track changes
+    const previousNonTechEvents = currentData.selectedNonTechEvents || [];
+    const hasChanged = JSON.stringify(previousNonTechEvents) !== JSON.stringify(selectedNonTechEvents);
+    
     await updateDoc(docRef, {
       selectedNonTechEvents: selectedNonTechEvents,
       updatedAt: Timestamp.now(),
     });
+
+    // Track the edit if there were changes and editedBy is provided
+    if (hasChanged && editedBy) {
+      await trackFormEdit(
+        registrationId, 
+        editedBy, 
+        ['selectedNonTechEvents'], 
+        { selectedNonTechEvents: previousNonTechEvents }
+      );
+    }
 
     return true;
   } catch (error) {
@@ -804,7 +1204,8 @@ export async function updateTeamInfo(
   registrationId: string,
   isTeamEvent: boolean,
   teamSize: number,
-  teamMembers: any[]
+  teamMembers: any[],
+  editedBy?: string
 ): Promise<boolean> {
   try {
     const registrationsRef = collection(db, "registrations");
@@ -819,12 +1220,36 @@ export async function updateTeamInfo(
     }
 
     const docRef = doc(db, "registrations", querySnapshot.docs[0].id);
+    const currentData = querySnapshot.docs[0].data() as FirebaseRegistration;
+    
+    // Track changes
+    const editedFields: string[] = [];
+    const previousValues: any = {};
+    
+    if (currentData.isTeamEvent !== isTeamEvent) {
+      editedFields.push('isTeamEvent');
+      previousValues.isTeamEvent = currentData.isTeamEvent;
+    }
+    if (currentData.teamSize !== teamSize) {
+      editedFields.push('teamSize');
+      previousValues.teamSize = currentData.teamSize;
+    }
+    if (JSON.stringify(currentData.teamMembers || []) !== JSON.stringify(teamMembers)) {
+      editedFields.push('teamMembers');
+      previousValues.teamMembers = currentData.teamMembers;
+    }
+    
     await updateDoc(docRef, {
       isTeamEvent: isTeamEvent,
       teamSize: teamSize,
       teamMembers: teamMembers,
       updatedAt: Timestamp.now(),
     });
+
+    // Track the edit if there were changes and editedBy is provided
+    if (editedFields.length > 0 && editedBy) {
+      await trackFormEdit(registrationId, editedBy, editedFields, previousValues);
+    }
 
     return true;
   } catch (error) {
@@ -879,7 +1304,7 @@ export async function createManualRegistration(registrationData: {
 
   // Created by admin info
   createdBy: string;
-}): Promise<{ success: boolean; registrationId: string; message: string }> {
+}, editedBy?: string): Promise<{ success: boolean; registrationId: string; message: string }> {
   try {
     // Generate registration ID
     const registrationId = `REG-${Date.now()}-${Math.random()
@@ -959,6 +1384,17 @@ export async function createManualRegistration(registrationData: {
       status: registrationData.status,
       paymentStatus: registrationData.paymentStatus,
 
+      // Edit History - Initialize with creation entry
+      editHistory: [{
+        editedAt: Timestamp.now(),
+        editedBy: editedBy || registrationData.createdBy,
+        editedFields: ['manual_creation'],
+        previousValues: { created_manually: true }
+      }],
+
+      // Payment amount
+      paymentAmount: 0,
+
       // Transaction IDs (Empty for manual registration)
       transactionIds: {},
 
@@ -984,5 +1420,205 @@ export async function createManualRegistration(registrationData: {
       registrationId: "",
       message: "Failed to create manual registration. Please try again.",
     };
+  }
+}
+
+/**
+ * Migrate/fix incomplete registration documents to have full structure
+ */
+export async function migrateRegistrationStructure(
+  registrationId: string
+): Promise<boolean> {
+  try {
+    const registrationsRef = collection(db, "registrations");
+    const q = query(
+      registrationsRef,
+      where("registrationId", "==", registrationId)
+    );
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      throw new Error("Registration not found");
+    }
+
+    const docRef = doc(db, "registrations", querySnapshot.docs[0].id);
+    const currentData = querySnapshot.docs[0].data();
+
+    // Build the missing structure
+    const updateData: any = {
+      updatedAt: Timestamp.now(),
+    };
+
+    // Add missing contactDetails
+    if (!currentData.contactDetails) {
+      updateData.contactDetails = {
+        accessibility: "",
+        dietaryRestrictions: "",
+        emergencyContact: "",
+        emergencyPhone: "",
+      };
+    }
+
+    // Add missing arrivalStatus
+    if (!currentData.arrivalStatus) {
+      updateData.arrivalStatus = {
+        hasArrived: false,
+        arrivalTime: null,
+        checkedInBy: null,
+        notes: "",
+      };
+    }
+
+    // Add missing workshopDetails
+    if (!currentData.workshopDetails) {
+      updateData.workshopDetails = {
+        selectedWorkshop: null,
+        workshopTitle: "",
+        canEditWorkshop: false,
+        workshopAttended: false,
+        workshopAttendanceTime: null,
+      };
+    }
+
+    // Add missing eventAttendance
+    if (!currentData.eventAttendance) {
+      updateData.eventAttendance = {
+        techEvents: [],
+        nonTechEvents: [],
+        workshops: [],
+      };
+    }
+
+    // Add missing adminNotes
+    if (!currentData.adminNotes) {
+      updateData.adminNotes = {
+        generalNotes: "",
+        specialRequirements: "",
+        flagged: false,
+        flagReason: "",
+        lastModifiedAt: null,
+        lastModifiedBy: null,
+      };
+    }
+
+    // Add missing editHistory
+    if (!currentData.editHistory) {
+      updateData.editHistory = [];
+    }
+
+    // Add missing paymentAmount
+    if (currentData.paymentAmount === undefined) {
+      updateData.paymentAmount = 0;
+    }
+
+    // Only update if there are missing fields
+    const hasUpdates = Object.keys(updateData).length > 1; // > 1 because updatedAt is always added
+    
+    if (hasUpdates) {
+      await updateDoc(docRef, updateData);
+      console.log(`Migrated registration structure for: ${registrationId}`);
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error migrating registration structure:", error);
+    return false;
+  }
+}
+
+/**
+ * Migrate all registrations to have complete structure (Admin utility)
+ */
+export async function migrateAllRegistrations(): Promise<{
+  success: boolean;
+  migratedCount: number;
+  totalCount: number;
+  message: string;
+}> {
+  try {
+    const registrationsRef = collection(db, "registrations");
+    const querySnapshot = await getDocs(registrationsRef);
+    
+    let migratedCount = 0;
+    const totalCount = querySnapshot.docs.length;
+    
+    console.log(`Starting migration of ${totalCount} registrations...`);
+    
+    for (const docSnapshot of querySnapshot.docs) {
+      const data = docSnapshot.data();
+      const registrationId = data.registrationId;
+      
+      if (registrationId) {
+        const migrated = await migrateRegistrationStructure(registrationId);
+        if (migrated) {
+          migratedCount++;
+        }
+      }
+    }
+    
+    console.log(`Migration complete: ${migratedCount}/${totalCount} registrations migrated`);
+    
+    return {
+      success: true,
+      migratedCount,
+      totalCount,
+      message: `Successfully migrated ${migratedCount} out of ${totalCount} registrations`,
+    };
+  } catch (error) {
+    console.error("Error during bulk migration:", error);
+    return {
+      success: false,
+      migratedCount: 0,
+      totalCount: 0,
+      message: "Failed to migrate registrations",
+    };
+  }
+}
+
+/**
+ * Update payment amount for a registration (Direct Firestore)
+ */
+export async function updatePaymentAmount(
+  registrationId: string,
+  paymentAmount: number,
+  editedBy?: string
+): Promise<boolean> {
+  try {
+    const registrationsRef = collection(db, "registrations");
+    const q = query(
+      registrationsRef,
+      where("registrationId", "==", registrationId)
+    );
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      throw new Error("Registration not found");
+    }
+
+    const docRef = doc(db, "registrations", querySnapshot.docs[0].id);
+    const currentData = querySnapshot.docs[0].data() as FirebaseRegistration;
+    
+    // Track the change
+    const previousAmount = currentData.paymentAmount || 0;
+    
+    await updateDoc(docRef, {
+      paymentAmount: paymentAmount,
+      updatedAt: Timestamp.now(),
+    });
+
+    // Track the edit if editedBy is provided and amount changed
+    if (editedBy && previousAmount !== paymentAmount) {
+      await trackFormEdit(
+        registrationId, 
+        editedBy, 
+        ['paymentAmount'], 
+        { paymentAmount: previousAmount }
+      );
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error updating payment amount:", error);
+    return false;
   }
 }

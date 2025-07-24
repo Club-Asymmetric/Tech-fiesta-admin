@@ -16,7 +16,9 @@ import {
   updateSelectedEvents,
   updateSelectedWorkshops,
   updateSelectedNonTechEvents,
-  updateTeamInfo,
+  updateTeamInfo,,
+  migrateAllRegistrations,
+  migrateRegistrationStructure
 } from "@/services/registrationService";
 import {
   Download,
@@ -44,6 +46,7 @@ import {
 import Link from "next/link";
 import ManualRegistrationForm from "./ManualRegistrationForm";
 import EmailManagement from "./EmailManagement";
+import { getCurrentAdminUser } from '@/utils/adminAuth';
 
 export default function EnhancedAdminDashboard() {
   const [registrations, setRegistrations] = useState<FirebaseRegistration[]>(
@@ -603,6 +606,7 @@ export default function EnhancedAdminDashboard() {
                     <th className="px-4 py-3 text-left">Team</th>
                     <th className="px-4 py-3 text-left">Pass</th>
                     <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-left">Last Edit</th>
                     <th className="px-4 py-3 text-left">Arrival</th>
                     <th className="px-4 py-3 text-left">Actions</th>
                   </tr>
@@ -689,6 +693,27 @@ export default function EnhancedAdminDashboard() {
                         >
                           {registration.status}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-xs">
+                          {registration.editHistory && registration.editHistory.length > 0 ? (
+                            <div>
+                              <div className="text-yellow-400 font-medium">
+                                {registration.editHistory.length} edit{registration.editHistory.length > 1 ? 's' : ''}
+                              </div>
+                              <div className="text-gray-400 truncate max-w-20" title={registration.editHistory[registration.editHistory.length - 1]?.editedBy}>
+                                By: {registration.editHistory[registration.editHistory.length - 1]?.editedBy?.split('@')[0] || 'Unknown'}
+                              </div>
+                              <div className="text-gray-500">
+                                {registration.editHistory[registration.editHistory.length - 1]?.editedAt && 
+                                  new Date(registration.editHistory[registration.editHistory.length - 1].editedAt.seconds * 1000).toLocaleDateString()
+                                }
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-gray-500">No edits</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -3457,6 +3482,75 @@ export default function EnhancedAdminDashboard() {
                           </p>
                         )}
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Edit History */}
+                  <div className="bg-gray-700 p-4 rounded-lg">
+                    <h3 className="font-semibold text-red-400 mb-3 flex items-center gap-2">
+                      <Edit2 className="h-4 w-4" />
+                      Edit History ({selectedRegistration.editHistory?.length || 0} edits)
+                    </h3>
+                    <div className="space-y-3">
+                      {selectedRegistration.editHistory && selectedRegistration.editHistory.length > 0 ? (
+                        <div className="max-h-64 overflow-y-auto space-y-3">
+                          {selectedRegistration.editHistory
+                            .slice()
+                            .reverse() // Show newest edits first
+                            .map((edit, index) => (
+                            <div key={index} className="bg-gray-600 p-3 rounded border-l-2 border-red-400">
+                              <div className="flex justify-between items-start mb-2">
+                                <div>
+                                  <div className="font-medium text-red-400">
+                                    {edit.editedBy?.split('@')[0] || 'Unknown User'}
+                                  </div>
+                                  <div className="text-xs text-gray-400">
+                                    {edit.editedAt && edit.editedAt.toDate 
+                                      ? edit.editedAt.toDate().toLocaleString()
+                                      : 'Unknown time'
+                                    }
+                                  </div>
+                                </div>
+                                <div className="text-xs text-gray-300">
+                                  #{selectedRegistration.editHistory.length - index}
+                                </div>
+                              </div>
+                              
+                              <div className="text-sm">
+                                <div className="mb-2">
+                                  <strong className="text-yellow-400">Fields Changed:</strong>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {edit.editedFields?.map((field, fieldIndex) => (
+                                      <span key={fieldIndex} className="px-2 py-1 bg-yellow-600/20 text-yellow-300 rounded text-xs">
+                                        {field}
+                                      </span>
+                                    )) || <span className="text-gray-400">No fields specified</span>}
+                                  </div>
+                                </div>
+                                
+                                {edit.previousValues && Object.keys(edit.previousValues).length > 0 && (
+                                  <div>
+                                    <strong className="text-cyan-400">Previous Values:</strong>
+                                    <div className="mt-1 text-xs">
+                                      {Object.entries(edit.previousValues).map(([key, value]) => (
+                                        <div key={key} className="text-gray-300">
+                                          <span className="text-cyan-300">{key}:</span> {JSON.stringify(value)}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-gray-400 text-center py-4">
+                          <Edit2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p>No edit history available</p>
+                          <p className="text-xs">This registration hasn't been modified yet</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

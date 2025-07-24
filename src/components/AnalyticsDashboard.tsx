@@ -30,6 +30,23 @@ export default function AnalyticsDashboard() {
     return total + (reg.teamSize || 1);
   }, 0);
 
+  // Calculate total paid amount
+  const totalPaid = registrations.reduce((total, reg) => {
+    // Use the paymentAmount field if available
+    if (typeof reg.paymentAmount === 'number') {
+      return total + reg.paymentAmount;
+    }
+    // Fallback: estimate based on payment status (you can adjust this logic)
+    if (reg.paymentStatus === 'verified') {
+      // Default estimation - you should replace this with actual pricing logic
+      const eventCount = (reg.selectedEvents?.length || 0) + 
+                        (reg.selectedWorkshops?.length || 0) + 
+                        (reg.selectedNonTechEvents?.length || 0);
+      return total + (eventCount * 100); // Assuming ₹100 per event as example
+    }
+    return total;
+  }, 0);
+
   // Event analytics
   const eventAnalytics = registrations.reduce((analytics, reg) => {
     // Technical Events
@@ -112,6 +129,41 @@ export default function AnalyticsDashboard() {
     return analytics;
   }, { team: { registrations: 0, members: 0 }, individual: { registrations: 0, members: 0 } });
 
+  // Edit tracking analytics
+  const editTrackingAnalytics = registrations.reduce((analytics, reg) => {
+    if (reg.editHistory && Array.isArray(reg.editHistory) && reg.editHistory.length > 0) {
+      analytics.editedForms += 1;
+      analytics.totalEdits += reg.editHistory.length;
+      
+      // Track recent edits (last 7 days)
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      reg.editHistory.forEach(edit => {
+        if (edit.editedAt && typeof edit.editedAt.toDate === 'function') {
+          const editDate = edit.editedAt.toDate();
+          if (editDate >= sevenDaysAgo) {
+            analytics.recentEdits += 1;
+          }
+        }
+        
+        // Track who made edits
+        if (edit.editedBy) {
+          if (!analytics.editsByUser[edit.editedBy]) {
+            analytics.editsByUser[edit.editedBy] = 0;
+          }
+          analytics.editsByUser[edit.editedBy] += 1;
+        }
+      });
+    }
+    return analytics;
+  }, { 
+    editedForms: 0, 
+    totalEdits: 0, 
+    recentEdits: 0, 
+    editsByUser: {} as Record<string, number> 
+  });
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -141,7 +193,7 @@ export default function AnalyticsDashboard() {
         </div>
         
         {/* Overview Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-6 mb-8">
           <div className="bg-blue-600 p-6 rounded-lg">
             <div className="flex items-center gap-3">
               <Users className="h-6 w-6" />
@@ -190,6 +242,15 @@ export default function AnalyticsDashboard() {
                 <p className="text-3xl font-bold">
                   {registrations.filter(r => r.paymentStatus === 'verified').length}
                 </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-pink-600 p-6 rounded-lg">
+            <div className="flex items-center gap-3">
+              <Calendar className="h-6 w-6" />
+              <div>
+                <h3 className="text-lg font-semibold">Total Paid</h3>
+                <p className="text-3xl font-bold">₹{totalPaid.toLocaleString()}</p>
               </div>
             </div>
           </div>
@@ -310,7 +371,7 @@ export default function AnalyticsDashboard() {
         </div>
 
         {/* Additional Analytics */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Year-wise Analytics */}
           <div className="bg-gray-800 p-6 rounded-lg">
             <h3 className="text-xl font-semibold mb-4 text-pink-400">Year-wise Registration</h3>
@@ -366,6 +427,53 @@ export default function AnalyticsDashboard() {
                   <div>Individual preference: {Math.round((teamAnalytics.individual.registrations / registrations.length) * 100)}%</div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Edit Tracking Analytics */}
+          <div className="bg-gray-800 p-6 rounded-lg">
+            <h3 className="text-xl font-semibold mb-4 text-red-400">Form Edit Tracking</h3>
+            <div className="space-y-4">
+              <div className="bg-gray-700 p-4 rounded">
+                <h4 className="font-medium text-red-400 mb-2">Edit Statistics</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span>Forms Edited:</span>
+                    <span className="text-red-400">{editTrackingAnalytics.editedForms}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total Edits:</span>
+                    <span className="text-red-400">{editTrackingAnalytics.totalEdits}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Recent Edits (7d):</span>
+                    <span className="text-yellow-400">{editTrackingAnalytics.recentEdits}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Edit Rate:</span>
+                    <span className="text-gray-300">
+                      {registrations.length > 0 ? Math.round((editTrackingAnalytics.editedForms / registrations.length) * 100) : 0}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {Object.keys(editTrackingAnalytics.editsByUser).length > 0 && (
+                <div className="bg-gray-700 p-4 rounded">
+                  <h4 className="font-medium text-cyan-400 mb-2">Top Editors</h4>
+                  <div className="space-y-2 text-sm max-h-32 overflow-y-auto">
+                    {Object.entries(editTrackingAnalytics.editsByUser)
+                      .sort(([,a], [,b]) => b - a)
+                      .slice(0, 5)
+                      .map(([user, count]) => (
+                      <div key={user} className="flex justify-between">
+                        <span className="truncate pr-2">{user}</span>
+                        <span className="text-cyan-400">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
