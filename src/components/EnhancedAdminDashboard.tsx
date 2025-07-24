@@ -16,7 +16,7 @@ import {
   updateSelectedEvents,
   updateSelectedWorkshops,
   updateSelectedNonTechEvents,
-  updateTeamInfo,,
+  updateTeamInfo,
   migrateAllRegistrations,
   migrateRegistrationStructure
 } from "@/services/registrationService";
@@ -68,6 +68,8 @@ export default function EnhancedAdminDashboard() {
     FirebaseRegistration[]
   >([]);
 
+
+  
   // Editing states
   const [editValues, setEditValues] = useState<any>({});
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
