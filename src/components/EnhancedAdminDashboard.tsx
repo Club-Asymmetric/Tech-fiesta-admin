@@ -158,7 +158,8 @@ export default function EnhancedAdminDashboard() {
         generalNotes,
         specialRequirements,
         flagged,
-        flagReason
+        flagReason,
+        getCurrentAdminUser()
       );
       if (success) {
         await fetchRegistrations();
@@ -180,7 +181,8 @@ export default function EnhancedAdminDashboard() {
     try {
       const success = await updateSelectedEvents(
         registrationId,
-        selectedEvents
+        selectedEvents,
+        getCurrentAdminUser()
       );
       if (success) {
         await fetchRegistrations();
@@ -202,7 +204,8 @@ export default function EnhancedAdminDashboard() {
     try {
       const success = await updateSelectedWorkshops(
         registrationId,
-        selectedWorkshops
+        selectedWorkshops,
+        getCurrentAdminUser()
       );
       if (success) {
         await fetchRegistrations();
@@ -224,7 +227,8 @@ export default function EnhancedAdminDashboard() {
     try {
       const success = await updateSelectedNonTechEvents(
         registrationId,
-        selectedNonTechEvents
+        selectedNonTechEvents,
+        getCurrentAdminUser()
       );
       if (success) {
         await fetchRegistrations();
@@ -250,7 +254,8 @@ export default function EnhancedAdminDashboard() {
         registrationId,
         isTeamEvent,
         teamSize,
-        teamMembers
+        teamMembers,
+        getCurrentAdminUser()
       );
       if (success) {
         await fetchRegistrations();
@@ -422,7 +427,7 @@ export default function EnhancedAdminDashboard() {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold">
-            Tech Fiesta 2025 - Enhanced Admin Dashboard
+            TF'25 - Admin Dashboard
           </h1>
           <div className="flex gap-4">
             <button
@@ -1200,7 +1205,11 @@ export default function EnhancedAdminDashboard() {
                                                       registration.registrationId,
                                                       "techEvents",
                                                       eventId,
-                                                      true
+                                                      true,
+                                                      undefined,
+                                                      undefined,
+                                                      undefined,
+                                                      getCurrentAdminUser()
                                                     );
                                                   if (success) {
                                                     await fetchRegistrations();
@@ -1239,7 +1248,11 @@ export default function EnhancedAdminDashboard() {
                                                       registration.registrationId,
                                                       "techEvents",
                                                       eventId,
-                                                      false
+                                                      false,
+                                                      undefined,
+                                                      undefined,
+                                                      undefined,
+                                                      getCurrentAdminUser()
                                                     );
                                                   if (success) {
                                                     await fetchRegistrations();
@@ -1441,7 +1454,11 @@ export default function EnhancedAdminDashboard() {
                                                       registration.registrationId,
                                                       "workshops",
                                                       workshopId,
-                                                      true
+                                                      true,
+                                                      undefined,
+                                                      undefined,
+                                                      undefined,
+                                                      getCurrentAdminUser()
                                                     );
                                                   if (success) {
                                                     await fetchRegistrations();
@@ -1480,7 +1497,11 @@ export default function EnhancedAdminDashboard() {
                                                       registration.registrationId,
                                                       "workshops",
                                                       workshopId,
-                                                      false
+                                                      false,
+                                                      undefined,
+                                                      undefined,
+                                                      undefined,
+                                                      getCurrentAdminUser()
                                                     );
                                                   if (success) {
                                                     await fetchRegistrations();
@@ -1600,7 +1621,8 @@ export default function EnhancedAdminDashboard() {
                                                       true,
                                                       "",
                                                       true,
-                                                      50
+                                                      50,
+                                                      getCurrentAdminUser()
                                                     );
                                                   if (success) {
                                                     await fetchRegistrations();
@@ -1639,7 +1661,11 @@ export default function EnhancedAdminDashboard() {
                                                       registration.registrationId,
                                                       "nonTechEvents",
                                                       eventId,
-                                                      false
+                                                      false,
+                                                      undefined,
+                                                      undefined,
+                                                      undefined,
+                                                      getCurrentAdminUser()
                                                     );
                                                   if (success) {
                                                     await fetchRegistrations();
@@ -1696,7 +1722,11 @@ export default function EnhancedAdminDashboard() {
                                           registration.registrationId,
                                           "techEvents",
                                           eventId,
-                                          true
+                                          true,
+                                          undefined,
+                                          undefined,
+                                          undefined,
+                                          getCurrentAdminUser()
                                         );
                                       }
                                       for (const workshop of registration.selectedWorkshops) {
@@ -1710,7 +1740,11 @@ export default function EnhancedAdminDashboard() {
                                           registration.registrationId,
                                           "workshops",
                                           workshopId,
-                                          true
+                                          true,
+                                          undefined,
+                                          undefined,
+                                          undefined,
+                                          getCurrentAdminUser()
                                         );
                                       }
                                       for (const event of registration.selectedNonTechEvents) {
@@ -1727,7 +1761,8 @@ export default function EnhancedAdminDashboard() {
                                           true,
                                           "",
                                           true,
-                                          50
+                                          50,
+                                          getCurrentAdminUser()
                                         );
                                       }
                                       await fetchRegistrations();
@@ -1942,7 +1977,8 @@ export default function EnhancedAdminDashboard() {
                                         registration.college,
                                       editValues.department ||
                                         registration.department,
-                                      editValues.year || registration.year
+                                      editValues.year || registration.year,
+                                      getCurrentAdminUser()
                                     );
                                     if (success) {
                                       await fetchRegistrations();
@@ -2095,7 +2131,8 @@ export default function EnhancedAdminDashboard() {
                                         editValues.ispass !== undefined
                                           ? editValues.ispass
                                           : registration.ispass,
-                                        editValues.selectedPassId
+                                        editValues.selectedPassId,
+                                        getCurrentAdminUser()
                                       );
                                     if (success) {
                                       await fetchRegistrations();
@@ -2271,7 +2308,8 @@ export default function EnhancedAdminDashboard() {
                                       editValues.accessibility ||
                                         registration.contactDetails
                                           ?.accessibility ||
-                                        ""
+                                        "",
+                                        getCurrentAdminUser()
                                     );
                                     if (success) {
                                       await fetchRegistrations();
