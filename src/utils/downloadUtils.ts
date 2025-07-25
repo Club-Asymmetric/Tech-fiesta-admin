@@ -14,34 +14,7 @@ export const downloadRegistrationPDF = (data: RegistrationDownloadData) => {
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;
 
-let yPosition: number;
-
-interface TeamMember {
-    name: string;
-    email: string;
-    department: string;
-    year?: string;
-}
-
-interface EventItem {
-    title: string;
-}
-
-interface RegistrationDownloadData extends Omit<FirebaseRegistration, 'teamMembers'> {
-    submissionDate: string;
-    isTeamEvent: boolean;
-    teamMembers: TeamMember[]; // Always an array, not undefined
-    selectedEvents: EventItem[];
-    selectedWorkshops: EventItem[];
-    selectedNonTechEvents: EventItem[];
-    registrationId: string;
-    name: string;
-    college: string;
-    department: string;
-    year: string;
-    email: string;
-    whatsapp: string;
-}
+  let yPosition: number;
 
   // --- Helper to add detail rows ---
   const addDetailRow = (label: string, value: string) => {
@@ -49,7 +22,7 @@ interface RegistrationDownloadData extends Omit<FirebaseRegistration, 'teamMembe
     doc.setFontSize(11);
     doc.text(label, margin, yPosition);
     doc.setFont("helvetica", "normal");
-    doc.text(value || "Not Provided", margin + 50, yPosition);
+    doc.text(value || "Not Provided", margin + 60, yPosition);
     yPosition += 8;
   };
 
@@ -67,12 +40,81 @@ interface RegistrationDownloadData extends Omit<FirebaseRegistration, 'teamMembe
   yPosition += 35;
   doc.setDrawColor(200);
   doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 12;
+
+  // --- Promotional Title ---
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text("TECH FIESTA '25 - National-Level Tech Fest", pageWidth / 2, yPosition, { align: "center" });
+  yPosition += 8;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(14);
+  doc.text("Prize Pool Worth 1.5 Lakhs!", pageWidth / 2, yPosition, { align: "center" });
   yPosition += 15;
 
-  // --- Confirmation Title ---
+  // --- Participant Details Section ---
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(22);
-  doc.text("Registration Confirmation", pageWidth / 2, yPosition, { align: "center" });
+  doc.setFontSize(16);
+  doc.setTextColor(0);
+  doc.text("Registration Confirmation", margin, yPosition);
+  yPosition += 10;
+  addDetailRow("Participant Name:", data.name);
+  addDetailRow("College:", data.college);
+  addDetailRow("Department:", data.department);
+  yPosition += 10;
+
+  // --- Event Information Section ---
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text("Event Information", margin, yPosition);
+  yPosition += 10;
+  addDetailRow("Date:", "30th July 2025");
+  addDetailRow("Time:", "8:00 AM - 3:00 PM");
+  addDetailRow("Venue:", "Chennai Institute of Technology, Kundrathur");
+  
+  // --- Event Description ---
+  yPosition += 5;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(13);
+  const eventDescription = "Tech Fiesta '25 is a national-level tech extravaganza packed into one high-energy day of learning, innovation, and competition. Open to students from all colleges across India, the event features 7+ tech challenges, 6+ expert-led workshops, and 5+ creative non-tech events.";
+  const lines = doc.splitTextToSize(eventDescription, pageWidth - margin * 2);
+  doc.text(lines, margin, yPosition);
+
+  // --- Footer for Page 1 ---
+  let footerY = pageHeight - 40;
+  doc.setDrawColor(200);
+  doc.line(margin, footerY, pageWidth - margin, footerY);
+  footerY += 8;
+
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(9);
+  doc.setTextColor(120);
+  const odStatement = "This document serves as official proof of registration for Tech Fiesta 2025. It may be presented to college authorities for the purpose of obtaining On-Duty (OD) permission.";
+  doc.text(doc.splitTextToSize(odStatement, pageWidth - margin * 2), margin, footerY);
+  
+  footerY = pageHeight - 20;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(150);
+  doc.text(`Date Issued: ${data.submissionDate}`, margin, footerY);
+  doc.text("For verification, contact: asymmetric@citchennai.net", pageWidth - margin, footerY, { align: "right" });
+
+
+  // --- ============== PAGE 2 ============== ---
+  doc.addPage();
+  yPosition = margin + 10;
+  doc.setTextColor(0, 0, 0);
+
+  // --- Registration ID Section (Moved to Page 2) ---
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text("Registration ID", pageWidth / 2, yPosition, { align: "center" });
+  yPosition += 12;
+  doc.setFont("courier", "bold");
+  doc.setFontSize(20);
+  doc.setFillColor(240, 240, 240);
+  doc.rect(margin, yPosition - 8, pageWidth - margin * 2, 14, "F");
+  doc.text(data.registrationId, pageWidth / 2, yPosition, { align: "center" });
   yPosition += 20;
 
   // --- Participant Details Section ---
@@ -88,41 +130,14 @@ interface RegistrationDownloadData extends Omit<FirebaseRegistration, 'teamMembe
   addDetailRow("Email:", data.email);
   addDetailRow("WhatsApp:", data.whatsapp);
   yPosition += 10;
-  
-  // --- Event Information Section ---
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.text("Event Information", margin, yPosition);
-  yPosition += 10;
-  addDetailRow("Date:", "30th July 2025");
-  addDetailRow("Time:", "8:00 AM - 3:00 PM");
-  addDetailRow("Venue:", "Chennai Institute of Technology, Kundrathur");
-  
-  // --- Registration ID Section (on Page 1) ---
-  yPosition += 20;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.text("Registration ID", pageWidth / 2, yPosition, { align: "center" });
-  yPosition += 12;
-  doc.setFont("courier", "bold");
-  doc.setFontSize(20);
-  doc.setFillColor(240, 240, 240);
-  doc.rect(margin, yPosition - 8, pageWidth - margin * 2, 14, "F");
-  doc.text(data.registrationId, pageWidth / 2, yPosition, { align: "center" });
-
-
-  // --- ============== PAGE 2 ============== ---
-  doc.addPage();
-  yPosition = margin + 10; // Reset Y position for the new page
 
   // --- Team Members Section (if applicable) ---
   if (data.isTeamEvent && data.teamMembers && data.teamMembers.length > 0) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
-    doc.text("Team Members", margin, yPosition);
+    doc.text("Team Details", margin, yPosition);
     yPosition += 10;
     
-    // Team Leader (Primary Registrant)
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
     doc.text("Team Leader (Participant 1)", margin, yPosition);
@@ -131,7 +146,6 @@ interface RegistrationDownloadData extends Omit<FirebaseRegistration, 'teamMembe
     addDetailRow("Email:", data.email);
     yPosition += 5;
 
-    // Other Team Members
     data.teamMembers.forEach((member, index) => {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
