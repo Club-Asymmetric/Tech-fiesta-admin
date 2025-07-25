@@ -20,6 +20,7 @@ import {
   migrateAllRegistrations,
   migrateRegistrationStructure
 } from "@/services/registrationService";
+import { downloadRegistrationPDF } from "@/utils/downloadUtils";
 import {
   Download,
   Search,
@@ -411,6 +412,14 @@ export default function EnhancedAdminDashboard() {
     link.click();
   };
 
+  const handleDownloadPDF = (registration: FirebaseRegistration) => {
+      const downloadData = {
+          ...registration,
+          submissionDate: registration.createdAt.toDate().toLocaleString(),
+      };
+      downloadRegistrationPDF(downloadData);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -760,6 +769,13 @@ export default function EnhancedAdminDashboard() {
                             title="View Details"
                           >
                             <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                              onClick={() => handleDownloadPDF(registration)}
+                              className="p-1 text-green-400 hover:text-green-300"
+                              title="Download PDF"
+                          >
+                              <Download className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() =>
