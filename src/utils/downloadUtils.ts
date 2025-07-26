@@ -185,7 +185,7 @@ export const downloadRegistrationPDF = (data: RegistrationDownloadData) => {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(11);
     doc.setTextColor(0, 102, 0); // Green color for emphasis
-    doc.text("Unlimited Access to ALL Technical Events", margin + 5, yPosition);
+    doc.text("Unlimited Access to ALL Technical Events and Non-Technical Events but limited to one Workshop", margin + 5, yPosition);
     yPosition += 10;
     doc.setTextColor(0, 0, 0); // Reset color
   }
