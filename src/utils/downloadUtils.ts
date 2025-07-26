@@ -218,6 +218,25 @@ export const downloadRegistrationPDF = (data: RegistrationDownloadData) => {
       data.selectedNonTechEvents.forEach(event => addEventListItem(event.title));
   }
 
+  // --- Footer for Page 2 ---
+  let footerY2 = pageHeight - 40;
+  doc.setDrawColor(200);
+  doc.line(margin, footerY2, pageWidth - margin, footerY2);
+  footerY2 += 8;
+
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(9);
+  doc.setTextColor(120);
+  const odStatement2 = "This document serves as official proof of registration for Tech Fiesta 2025. It may be presented to college authorities for the purpose of obtaining On-Duty (OD) permission.";
+  doc.text(doc.splitTextToSize(odStatement2, pageWidth - margin * 2), margin, footerY2);
+  
+  footerY2 = pageHeight - 20;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(150);
+  doc.text(`Date Issued: ${data.submissionDate}`, margin, footerY2);
+  doc.text("For verification, contact: asymmetric@citchennai.net", pageWidth - margin, footerY2, { align: "right" });
+
   // --- Save the final PDF ---
   doc.save(`Tech-Fiesta-2025-Registration-${data.registrationId}.pdf`);
 };
