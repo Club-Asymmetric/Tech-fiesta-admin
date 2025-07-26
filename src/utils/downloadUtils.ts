@@ -166,7 +166,7 @@ export const downloadRegistrationPDF = (data: RegistrationDownloadData) => {
   // --- Registered Events & Workshops Section ---
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
-  doc.text("Registered Events & Workshops", margin, yPosition);
+  doc.text("Access & Registered Events", margin, yPosition);
   yPosition += 10;
 
   const addEventListItem = (text: string) => {
@@ -175,60 +175,48 @@ export const downloadRegistrationPDF = (data: RegistrationDownloadData) => {
     doc.text(`• ${text}`, margin + 5, yPosition);
     yPosition += 7;
   };
-
-  if (data.selectedEvents.length === 0 && data.selectedWorkshops.length === 0 && data.selectedNonTechEvents.length === 0) {
-    addEventListItem("General Entry");
-  } else {
-    if (data.selectedEvents.length > 0) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(12);
-        doc.text("Technical Events:", margin, yPosition);
-        yPosition += 8;
-        data.selectedEvents.forEach(event => addEventListItem(event.title));
-        yPosition += 5;
-    }
-    if (data.selectedWorkshops.length > 0) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(12);
-        doc.text("Workshops:", margin, yPosition);
-        yPosition += 8;
-        data.selectedWorkshops.forEach(ws => addEventListItem(ws.title));
-        yPosition += 5;
-    }
-    if (data.selectedNonTechEvents.length > 0) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(12);
-        doc.text("Non-Technical Events:", margin, yPosition);
-        yPosition += 8;
-        data.selectedNonTechEvents.forEach(event => addEventListItem(event.title));
-    }
+  
+  // --- Check for a pass ---
+  if (data.ispass || data.selectedPassId) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("Pass Holder: Tech Fiesta General Pass", margin, yPosition);
+    yPosition += 8;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.setTextColor(0, 102, 0); // Green color for emphasis
+    doc.text("Unlimited Access to ALL Technical Events", margin + 5, yPosition);
+    yPosition += 10;
+    doc.setTextColor(0, 0, 0); // Reset color
   }
 
-  // --- Footer (OD Statement and contact info) ---
-  const drawFooter = (pageNumber: number) => {
-    doc.setPage(pageNumber);
-    let footerY = pageHeight - 40;
-    doc.setDrawColor(200);
-    doc.line(margin, footerY, pageWidth - margin, footerY);
-    footerY += 8;
-
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(9);
-    doc.setTextColor(120);
-    const odStatement = "This document serves as official proof of registration for Tech Fiesta 2025, hosted at Chennai Institute of Technology. It may be presented to college authorities for the purpose of obtaining On-Duty (OD) permission.";
-    const lines = doc.splitTextToSize(odStatement, pageWidth - margin * 2);
-    doc.text(lines, margin, footerY);
-    
-    footerY = pageHeight - 20;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(150);
-    doc.text(`Date Issued: ${data.submissionDate}`, margin, footerY);
-    doc.text("For verification, contact: asymmetric@citchennai.net", pageWidth - margin, footerY, { align: "right" });
-  };
+  // --- List selected workshops and non-tech events for everyone ---
+  if (data.selectedWorkshops.length > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Registered Workshops:", margin, yPosition);
+      yPosition += 8;
+      data.selectedWorkshops.forEach(ws => addEventListItem(ws.title));
+      yPosition += 5;
+  }
   
-  // Draw footer on the last page
-  drawFooter(doc.internal.pages.length);
+  // --- For non-pass holders, list their selected technical events ---
+  if (!data.ispass && !data.selectedPassId && data.selectedEvents.length > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Registered Technical Events:", margin, yPosition);
+      yPosition += 8;
+      data.selectedEvents.forEach(event => addEventListItem(event.title));
+      yPosition += 5;
+  }
+  
+  if (data.selectedNonTechEvents.length > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Registered Non-Technical Events:", margin, yPosition);
+      yPosition += 8;
+      data.selectedNonTechEvents.forEach(event => addEventListItem(event.title));
+  }
 
   // --- Save the final PDF ---
   doc.save(`Tech-Fiesta-2025-Registration-${data.registrationId}.pdf`);
