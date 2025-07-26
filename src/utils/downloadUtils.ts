@@ -199,25 +199,28 @@ export const downloadRegistrationPDF = (data: RegistrationDownloadData) => {
       data.selectedWorkshops.forEach(ws => addEventListItem(ws.title));
       yPosition += 5;
   }
-  
-  // --- For non-pass holders, list their selected technical events ---
-  if (!data.ispass && !data.selectedPassId && data.selectedEvents.length > 0) {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.text("Registered Technical Events:", margin, yPosition);
-      yPosition += 8;
-      data.selectedEvents.forEach(event => addEventListItem(event.title));
-      yPosition += 5;
+  else if (data.selectedEvents.length === 0 && data.selectedWorkshops.length === 0 && data.selectedNonTechEvents.length === 0) {
+    addEventListItem("General Entry");
+  } 
+  else {
+    // --- For non-pass holders, list their selected technical events ---
+    if (!data.ispass && !data.selectedPassId && data.selectedEvents.length > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("Registered Technical Events:", margin, yPosition);
+        yPosition += 8;
+        data.selectedEvents.forEach(event => addEventListItem(event.title));
+        yPosition += 5;
+    }
+    
+    if (data.selectedNonTechEvents.length > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("Registered Non-Technical Events:", margin, yPosition);
+        yPosition += 8;
+        data.selectedNonTechEvents.forEach(event => addEventListItem(event.title));
+    }
   }
-  
-  if (data.selectedNonTechEvents.length > 0) {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
-      doc.text("Registered Non-Technical Events:", margin, yPosition);
-      yPosition += 8;
-      data.selectedNonTechEvents.forEach(event => addEventListItem(event.title));
-  }
-
   // --- Footer for Page 2 ---
   let footerY2 = pageHeight - 40;
   doc.setDrawColor(200);
