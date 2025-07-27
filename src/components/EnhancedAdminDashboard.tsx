@@ -72,7 +72,23 @@ export default function EnhancedAdminDashboard() {
     FirebaseRegistration[]
   >([]);
 
+  // State for missing OD letter modal
+  const [showMissingODModal, setShowMissingODModal] = useState(false);
+  const [missingODNames, setMissingODNames] = useState<string[]>([]);
 
+  // Handler to check for missing OD letters
+  const handleCheckMissingODLetters = () => {
+    const missing = registrations
+      .filter(
+        (reg) =>
+          !reg.adminNotes ||
+          !reg.adminNotes.odLetterCount ||
+          reg.adminNotes.odLetterCount <= 0
+      )
+      .map((reg) => reg.name + (reg.registrationId ? ` (${reg.registrationId})` : ""));
+    setMissingODNames(missing);
+    setShowMissingODModal(true);
+  };
 
   // Editing states
   const [editValues, setEditValues] = useState<any>({});
@@ -356,27 +372,12 @@ export default function EnhancedAdminDashboard() {
       "Team Event",
       "Team Size",
       "Team Members",
-      "Event Count",
       "Has Pass",
-      "Pass ID",
       "Selected Events",
       "Selected Workshops",
       "Non-Tech Events",
       "Status",
       "Payment Status",
-      "Has Arrived",
-      "Arrival Time",
-      "Checked In By",
-      "Selected Workshop",
-      "Workshop Attended",
-      "Emergency Contact",
-      "Emergency Phone",
-      "Dietary Restrictions",
-      "Accessibility Needs",
-      "Admin Notes",
-      "Special Requirements",
-      "Flagged",
-      "Flag Reason",
       "Created At",
     ];
 
@@ -400,9 +401,7 @@ export default function EnhancedAdminDashboard() {
             )
             .join("; ")
         : "No team members",
-      reg.eventCount,
       reg.ispass ? "Yes" : "No",
-      reg.selectedPassId || "",
       reg.selectedEvents
         .map((event) =>
           typeof event === "object" && event.title ? event.title : event
@@ -422,23 +421,6 @@ export default function EnhancedAdminDashboard() {
         .join("; "),
       reg.status,
       reg.paymentStatus,
-      reg.arrivalStatus?.hasArrived ? "Yes" : "No",
-      reg.arrivalStatus?.arrivalTime
-        ? new Date(
-            reg.arrivalStatus.arrivalTime.seconds * 1000
-          ).toLocaleString()
-        : "",
-      reg.arrivalStatus?.checkedInBy || "",
-      reg.workshopDetails?.workshopTitle || "",
-      reg.workshopDetails?.workshopAttended ? "Yes" : "No",
-      reg.contactDetails?.emergencyContact || "",
-      reg.contactDetails?.emergencyPhone || "",
-      reg.contactDetails?.dietaryRestrictions || "",
-      reg.contactDetails?.accessibility || "",
-      reg.adminNotes?.generalNotes || "",
-      reg.adminNotes?.specialRequirements || "",
-      reg.adminNotes?.flagged ? "Yes" : "No",
-      reg.adminNotes?.flagReason || "",
       reg.createdAt.toDate().toLocaleDateString(),
     ]);
 
@@ -463,6 +445,105 @@ export default function EnhancedAdminDashboard() {
       downloadRegistrationPDF(downloadData);
   };
 
+  // Handler to download paid participants (tech/workshop/pass) as CSV
+  const handleDownloadPaidParticipants = () => {
+    const filtered = registrations.filter(
+      (reg) =>
+        reg.paymentStatus === "verified" &&
+        (
+          (reg.selectedEvents && reg.selectedEvents.length > 0) ||
+          (reg.selectedWorkshops && reg.selectedWorkshops.length > 0) ||
+          reg.ispass
+        )
+    );
+    downloadCustomCSV(filtered, 'paid-tech-workshop-pass');
+  };
+
+  // Handler to download non-tech unpaid participants as CSV
+  const handleDownloadUnpaidNonTechParticipants = () => {
+    const filtered = registrations.filter(
+      (reg) =>
+        reg.selectedNonTechEvents && reg.selectedNonTechEvents.length > 0 &&
+        reg.paymentStatus === "not-required"
+    );
+    downloadCustomCSV(filtered, 'nontech-not-required');
+  };
+
+  // Helper to download a custom CSV for a list of registrations
+  const downloadCustomCSV = (list: FirebaseRegistration[], filename: string) => {
+    if (!list || list.length === 0) {
+      alert('No matching participants found.');
+      return;
+    }
+    const csvHeaders = [
+      "Registration ID",
+      "Name",
+      "Email",
+      "WhatsApp",
+      "College",
+      "Department",
+      "Year",
+      "Team Event",
+      "Team Size",
+      "Team Members",
+      "Has Pass",
+      "Selected Events",
+      "Selected Workshops",
+      "Non-Tech Events",
+      "Status",
+      "Payment Status",
+      "Created At",
+    ];
+    const csvData = list.map((reg) => [
+      reg.registrationId,
+      reg.name,
+      reg.email,
+      reg.whatsapp,
+      reg.college,
+      reg.department,
+      reg.year,
+      reg.isTeamEvent ? "Yes" : "No",
+      reg.teamSize,
+      reg.teamMembers && reg.teamMembers.length > 0
+        ? reg.teamMembers
+            .map(
+              (member: any, index: number) =>
+                `Member ${index + 2}: ${member.name || "N/A"} (${member.email || "N/A"})`
+            )
+            .join("; ")
+        : "No team members",
+      reg.ispass ? "Yes" : "No",
+      reg.selectedEvents
+        .map((event) =>
+          typeof event === "object" && event.title ? event.title : event
+        )
+        .join("; "),
+      reg.selectedWorkshops
+        .map((workshop) =>
+          typeof workshop === "object" && workshop.title
+            ? workshop.title
+            : workshop
+        )
+        .join("; "),
+      reg.selectedNonTechEvents
+        .map((event) =>
+          typeof event === "object" && event.title ? event.title : event
+        )
+        .join("; "),
+      reg.status,
+      reg.paymentStatus,
+      reg.createdAt.toDate().toLocaleDateString(),
+    ]);
+    const csvContent = [csvHeaders, ...csvData]
+      .map((row) => row.map((field) => `"${field}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${filename}-${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -479,9 +560,16 @@ export default function EnhancedAdminDashboard() {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold">
-            TF'25 - Admin Dashboard
+            TF'25  Dashboard
           </h1>
           <div className="flex gap-4">
+            <button
+              onClick={handleCheckMissingODLetters}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-700 hover:bg-purple-800 rounded-lg transition-colors"
+            >
+              <Send className="h-4 w-4" />
+              Check Missing OD Letters
+            </button>
             <button
               onClick={() => setShowEmailManagement(true)}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
@@ -520,8 +608,50 @@ export default function EnhancedAdminDashboard() {
           </div>
         </div>
 
+        {/* New row for paid/unpaid filter downloads */}
+        <div className="flex gap-4 mb-8 justify-end">
+          <button
+            onClick={handleDownloadPaidParticipants}
+            className="flex items-center gap-2 px-4 py-2 bg-green-700 hover:bg-green-800 rounded-lg transition-colors"
+          >
+            <CheckCircle className="h-4 w-4" />
+            Download Paid (Tech/Workshop/Pass)
+          </button>
+          <button
+            onClick={handleDownloadUnpaidNonTechParticipants}
+            className="flex items-center gap-2 px-4 py-2 bg-yellow-700 hover:bg-yellow-800 rounded-lg transition-colors"
+          >
+            <AlertTriangle className="h-4 w-4" />
+            Download Unpaid (Non-Tech)
+          </button>
+        </div>
+        </div>
+        {/* Modal for missing OD letters */}
+        {showMissingODModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+            <div className="bg-gray-900 p-8 rounded-lg shadow-lg max-w-lg w-full">
+              <h2 className="text-xl font-bold mb-4 text-purple-400">Participants Missing OD Letter</h2>
+              {missingODNames.length === 0 ? (
+                <div className="text-green-400">All participants have received their OD letter.</div>
+              ) : (
+                <ul className="max-h-64 overflow-y-auto text-white list-disc pl-5 space-y-1 mb-4">
+                  {missingODNames.map((name, idx) => (
+                    <li key={idx}>{name}</li>
+                  ))}
+                </ul>
+              )}
+              <button
+                onClick={() => setShowMissingODModal(false)}
+                className="mt-4 px-4 py-2 bg-purple-700 hover:bg-purple-800 rounded-lg text-white"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Enhanced Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-7 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-7 gap-6 mb-8 max-w-7xl mx-auto">
           <div className="bg-blue-600 p-6 rounded-lg">
             <div className="flex items-center gap-3">
               <Users className="h-6 w-6" />
@@ -595,7 +725,7 @@ export default function EnhancedAdminDashboard() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex space-x-1 mb-6 bg-gray-800 p-1 rounded-lg">
+        <div className="flex space-x-1 mb-6 bg-gray-800 p-1 rounded-lg max-w-7xl mx-auto">
           {[
             { id: "overview", label: "Overview", icon: Eye },
             { id: "arrival", label: "Arrival Tracking", icon: MapPin },
@@ -619,7 +749,7 @@ export default function EnhancedAdminDashboard() {
         </div>
 
         {/* Controls */}
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="flex flex-col md:flex-row gap-4 mb-6 max-w-7xl mx-auto">
           <div className="flex-1">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -654,7 +784,7 @@ export default function EnhancedAdminDashboard() {
         </div>
 
         {/* Enhanced Table Based on Active Tab */}
-        <div className="bg-gray-800 rounded-lg overflow-hidden">
+        <div className="bg-gray-800 rounded-lg overflow-hidden max-w-7xl mx-auto">
           <div className="overflow-x-auto">
             {activeTab === "overview" && (
               <table className="w-full text-sm">
@@ -3115,8 +3245,7 @@ export default function EnhancedAdminDashboard() {
             No registrations found matching your criteria.
           </div>
         )}
-      </div>
-
+      
       {/* Enhanced Registration Detail Modal */}
       {selectedRegistration && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
