@@ -315,7 +315,7 @@ export const generateRegistrationPDFBlob = (data: RegistrationDownloadData): Blo
   yPosition += 5;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(13);
-  const eventDescription = "Tech Fiesta '25 is a national-level tech extravaganza packed into one high-energy day of learning, innovation, and competition. Open to students from all colleges across India, the event features 7+ tech challenges, 6+ expert-led workshops, and 5+ creative non-tech events.";
+  const eventDescription = "Tech Fiesta '25 is a national-level tech extravaganza packed into one high-energy day of learning, innovation, and competition. Open to students from all colleges across India, the event features 5+ tech challenges, 5+ expert-led workshops, and 5+ creative non-tech events.";
   const lines = doc.splitTextToSize(eventDescription, pageWidth - margin * 2);
   doc.text(lines, margin, yPosition);
 
