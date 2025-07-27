@@ -18,9 +18,11 @@ import {
   updateSelectedNonTechEvents,
   updateTeamInfo,
   migrateAllRegistrations,
-  migrateRegistrationStructure
+  migrateRegistrationStructure,
+  updateODLetterStatus
 } from "@/services/registrationService";
-import { downloadRegistrationPDF } from "@/utils/downloadUtils";
+import { downloadRegistrationPDF, generateRegistrationPDFBlob } from "@/utils/downloadUtils";
+import { sendODLetterEmail } from "@/services/emailService";
 import {
   Download,
   Search,
@@ -43,6 +45,7 @@ import {
   Star,
   Save,
   RefreshCw,
+  Send,
 } from "lucide-react";
 import Link from "next/link";
 import ManualRegistrationForm from "./ManualRegistrationForm";
@@ -74,6 +77,7 @@ export default function EnhancedAdminDashboard() {
   // Editing states
   const [editValues, setEditValues] = useState<any>({});
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
+  const [sendingODLetter, setSendingODLetter] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRegistrations();
@@ -106,6 +110,45 @@ export default function EnhancedAdminDashboard() {
       );
     } finally {
       setSendingEmail(null);
+    }
+  };
+
+  const handleSendODLetter = async (registration: FirebaseRegistration) => {
+    setSendingODLetter(registration.id);
+    try {
+      // Generate PDF blob
+      const downloadData = {
+        ...registration,
+        submissionDate: registration.createdAt.toDate().toLocaleString(),
+      };
+      const pdfBlob = generateRegistrationPDFBlob(downloadData);
+
+      // Send email with PDF attachment
+      const result = await sendODLetterEmail(registration, pdfBlob);
+
+      if (result.success) {
+        // Update OD letter status in database
+        const updateSuccess = await updateODLetterStatus(
+          registration.registrationId,
+          getCurrentAdminUser()
+        );
+
+        if (updateSuccess) {
+          await fetchRegistrations(); // Refresh data to show updated count
+          alert(`OD Letter sent successfully to ${registration.email}`);
+        } else {
+          alert(`Email sent but failed to update status in database`);
+        }
+      } else {
+        alert(`Failed to send OD Letter: ${result.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Error sending OD Letter:", error);
+      alert(
+        `Error sending OD Letter: ${(error as Error).message || "Unknown error"}`
+      );
+    } finally {
+      setSendingODLetter(null);
     }
   };
 
@@ -789,6 +832,27 @@ export default function EnhancedAdminDashboard() {
                               <RefreshCw className="h-4 w-4 animate-spin" />
                             ) : (
                               <Mail className="h-4 w-4" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleSendODLetter(registration)
+                            }
+                            disabled={sendingODLetter === registration.id}
+                            className="p-1 text-purple-400 hover:text-purple-300 disabled:opacity-50"
+                            title={`Send OD Letter${registration.adminNotes?.odLetterCount ? ` (Sent: ${registration.adminNotes.odLetterCount})` : ''}`}
+                          >
+                            {sendingODLetter === registration.id ? (
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <div className="relative">
+                                <Send className="h-4 w-4" />
+                                {registration.adminNotes?.odLetterCount && registration.adminNotes.odLetterCount > 0 && (
+                                  <span className="absolute -top-1 -right-1 bg-purple-600 text-white text-xs rounded-full h-3 w-3 flex items-center justify-center text-[8px]">
+                                    {registration.adminNotes.odLetterCount}
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </button>
                           <a

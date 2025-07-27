@@ -86,6 +86,10 @@ export interface FirebaseRegistration {
     flagReason: string;
     lastModifiedAt: Timestamp | null;
     lastModifiedBy: string | null;
+    odLetterSent?: boolean;
+    odLetterSentAt?: Timestamp | null;
+    odLetterSentBy?: string | null;
+    odLetterCount?: number;
   };
 
   // Edit Tracking
@@ -299,6 +303,10 @@ export async function submitRegistration(
         flagReason: "",
         lastModifiedAt: null,
         lastModifiedBy: null,
+        odLetterSent: false,
+        odLetterSentAt: null,
+        odLetterSentBy: null,
+        odLetterCount: 0,
       },
       
       // Initialize edit tracking
@@ -826,6 +834,56 @@ export async function updateAdminNotes(
     return true;
   } catch (error) {
     console.error("Error updating admin notes:", error);
+    return false;
+  }
+}
+
+/**
+ * Update OD letter status
+ */
+export async function updateODLetterStatus(
+  registrationId: string,
+  sentBy: string
+): Promise<boolean> {
+  try {
+    // First, find the document by registrationId field
+    const registrationsRef = collection(db, "registrations");
+    const q = query(registrationsRef, where("registrationId", "==", registrationId));
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      console.error(`No registration found with registrationId: ${registrationId}`);
+      return false;
+    }
+    
+    // Get the first (should be only) document
+    const registrationDoc = querySnapshot.docs[0];
+    const currentData = registrationDoc.data();
+    const currentCount = currentData?.adminNotes?.odLetterCount || 0;
+    
+    const registrationRef = doc(db, "registrations", registrationDoc.id);
+    
+    const updateData = {
+      "adminNotes.odLetterSent": true,
+      "adminNotes.odLetterSentAt": Timestamp.now(),
+      "adminNotes.odLetterSentBy": sentBy,
+      "adminNotes.odLetterCount": currentCount + 1,
+      updatedAt: Timestamp.now(),
+    };
+
+    await updateDoc(registrationRef, updateData);
+    
+    console.log(`Updated OD letter status for ${registrationId}, sent by: ${sentBy}, count: ${currentCount + 1}`);
+
+    // Track the edit
+    await trackFormEdit(registrationId, sentBy, ['adminNotes.odLetterSent'], {
+      odLetterSent: currentData?.adminNotes?.odLetterSent || false,
+      odLetterCount: currentCount
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Error updating OD letter status:", error);
     return false;
   }
 }
