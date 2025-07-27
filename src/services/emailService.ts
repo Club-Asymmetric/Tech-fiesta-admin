@@ -292,7 +292,7 @@ export const sendODLetterEmail = async (
                 ${registration.selectedEvents.length > 0 ? registration.selectedEvents.map(e => `<p>• <strong>Technical Event:</strong> ${e.title || e}</p>`).join('') : ''}
                 ${registration.selectedWorkshops.length > 0 ? registration.selectedWorkshops.map(w => `<p>• <strong>Workshop:</strong> ${w.title || w}</p>`).join('') : ''}
                 ${registration.selectedNonTechEvents.length > 0 ? registration.selectedNonTechEvents.map(e => `<p>• <strong>Non-Technical Event:</strong> ${e.title || e}</p>`).join('') : ''}
-                ${registration.ispass ? '<p>• <strong>Full Access Pass Holder</strong> - Unlimited access to all events</p>' : ''}
+                ${registration.ispass ? '<p>• <strong>Full Access Pass Holder</strong> - Unlimited access to all Technical and Non-Technical events</p>' : ''}
                 ${registration.selectedEvents.length === 0 && registration.selectedWorkshops.length === 0 && registration.selectedNonTechEvents.length === 0 && !registration.ispass ? '<p><em>Walk-in registration for events at venue</em></p>' : ''}
             </div>
         </div>
@@ -310,8 +310,8 @@ export const sendODLetterEmail = async (
         <div class="section">
             <h3>🏆 Event Highlights</h3>
             <p>• Prize Pool Worth ₹1.5 Lakhs<br>
-            • 7+ Technical Competitions<br>
-            • 6+ Expert-led Workshops<br>
+            • 5+ Technical Competitions<br>
+            • 5+ Expert-led Workshops<br>
             • 5+ Non-Technical Events<br>
             • Networking opportunities with industry experts</p>
         </div>
@@ -319,7 +319,7 @@ export const sendODLetterEmail = async (
         <div class="section">
             <h3>📞 Contact Information</h3>
             <p><strong>Email:</strong> asymmetric@citchennai.net<br>
-            <strong>Phone:</strong> +91 9876543210</p>
+            <strong>Phone:</strong> +91 8438190166</p>
         </div>
     </div>
     
@@ -357,7 +357,8 @@ REGISTERED EVENTS:
 ${registration.selectedEvents.length > 0 ? registration.selectedEvents.map(e => `• Technical Event: ${e.title || e}`).join('\n') : ''}
 ${registration.selectedWorkshops.length > 0 ? registration.selectedWorkshops.map(w => `• Workshop: ${w.title || w}`).join('\n') : ''}
 ${registration.selectedNonTechEvents.length > 0 ? registration.selectedNonTechEvents.map(e => `• Non-Technical Event: ${e.title || e}`).join('\n') : ''}
-${registration.ispass ? '• Full Access Pass Holder - Unlimited access to all events' : ''}
+${registration.ispass ? '• Full Access Pass Holder - Unlimited access to all Technical and Non-Technical events' : ''}
+${registration.selectedEvents.length === 0 && registration.selectedWorkshops.length === 0 && registration.selectedNonTechEvents.length === 0 && !registration.ispass ? '• Walk-in registration for events at venue' : ''}
 
 IMPORTANT INSTRUCTIONS:
 1. Present this email and attached PDF to college authorities for OD permission
@@ -365,7 +366,7 @@ IMPORTANT INSTRUCTIONS:
 3. Report to registration desk by 8:00 AM sharp
 4. Follow all event guidelines and safety protocols
 
-For any queries: asymmetric@citchennai.net | +91 9876543210
+For any queries: asymmetric@citchennai.net | +91 8438190166
 
 Best regards,
 Team Asymmetric
